@@ -8,14 +8,16 @@ import time
 import random
 
 # module maison
-import decorateur
-import graph_formation
-import MF_HNS
+import script.decorateur as decorateur
+import script.graph_formation as graph_formation
+import script.MF_HNS as MF_HNS
 
 GraphFormation = graph_formation.GraphFormation
 get_estimations = MF_HNS.get_estimations
 
-
+# Clustering
+from sklearn.cluster import KMeans
+from sklearn import metrics
 
 # Fonctions qui calcul le root mean squared error entre les effets fixes; soit sur les deux, soit sur les effets fixes alpha/psi uniquement
 def rmse(alpha_hat, psi_hat, alpha_star, psi_star):
@@ -92,7 +94,7 @@ def plot_rmse_epochs(sim_beta_distance_array = [-25,-20, -17, -15,-12,-10, -8, -
     plt.show()      
 
 @decorateur.compute_time
-def plot_rmsedensity( sim_beta_distance_array = [-20,-15, -12, -10,-7,-5, -3, -2,], nb_epochs = 80):
+def plot_rmsedensity( sim_beta_distance_array = [-25, -20,-15, -12, -10,-8,-5, -3,], nb_epochs = 200):
     size = len(sim_beta_distance_array)
     density_array = np.zeros(size)
     beta_skilled_d, beta_age_d, beta_informed_p, beta_age_p, beta_distance = np.zeros(size), np.zeros(size), np.zeros(size), np.zeros(size) ,np.zeros(size)
@@ -114,28 +116,19 @@ def plot_rmsedensity( sim_beta_distance_array = [-20,-15, -12, -10,-7,-5, -3, -2
         
         density_array[i] = density(df)
         print(f"density: {100*density_array[i]:2f}%")
-
-        df['age_p'] = (df['age_p'] - df['age_p'].mean())/df['age_p'].std()
-        df['age_d'] = (df['age_d'] - df['age_d'].mean())/df['age_d'].std()
         
-        estimates =  get_estimations(df, nb_epochs=80, initial_weights=None, target_loss=None, l_lambda=0, show_print=0, seed=i)
+        estimates =  get_estimations(df, nb_epochs=80, initial_weights=None, target_loss=None, l_lambda=0, show_print=0, seed=12)
         
         ef_patient_hat = np.array(estimates[1][0])
         ef_doctor_hat = np.array(estimates[1][1])
-        beta_age_p[i] = estimates[1][2][0]
-        beta_age_d[i] = estimates[1][3][0]
-        beta_informed_p[i] = estimates[1][4][0]
-        beta_skilled_d[i] = estimates[1][5][0]
-        beta_distance[i] = estimates[1][6][0]
-        print(f"BETA ESTIMATION ERROR: age patient:  {beta_age_p[i]-0.1}; age doctor: {beta_age_d[i]-0.1}; informed : {beta_informed_p[i]-1}; skilled: {beta_skilled_d[i]-1}; distance: {beta_distance[i] - sim_beta_distance}")  
 
         rmse_array[i] = rmse(ef_patient_hat, ef_doctor_hat, alpha_star, psi_star)[0]
         rmse_alpha_array[i] = rmse_alpha(ef_patient_hat, alpha_star)[0]
         rmse_psi_array[i] = rmse_psi(ef_doctor_hat, psi_star)[0]
 
         # Initialise le modèle KMeans avec 3 et 2 clusters
-        kmeans_p = KMeans(n_clusters=3, random_state=0)
-        kmeans_d = KMeans(n_clusters=2, random_state=1)
+        kmeans_p = KMeans(n_clusters=3, random_state=i)
+        kmeans_d = KMeans(n_clusters=3, random_state=i)
         
         ef_patient_hat = np.array(ef_patient_hat).flatten()
         ef_doctor_hat = np.array(ef_doctor_hat).flatten()
@@ -176,52 +169,38 @@ def plot_rmsedensity( sim_beta_distance_array = [-20,-15, -12, -10,-7,-5, -3, -2
     return density_array, ami_p_array, ami_d_array, beta_age_p, beta_age_d, beta_informed_p, beta_skilled_d, beta_distance
 
 @decorateur.compute_time
-def simulation_confidence_interval(n=10, sim_beta_distance_array = [-20,-15, -12, -10,-7,-5, -3, -2,], nb_epochs=100, n_patients=1000, n_doctors=50 ):
+def simulation_confidence_interval(n=10, sim_beta_distance_array = [-25, -20,-15, -12, -10,-8,-5, -3,], nb_epochs=200, n_patients=1000, n_doctors=50 ):
     
     size = len(sim_beta_distance_array)
     matrix = np.zeros((n,size,4))
 
     for j in range(n):
         density_array = np.zeros(size)
-        beta_skilled_d, beta_age_d, beta_informed_p, beta_age_p, beta_distance = np.zeros(size), np.zeros(size), np.zeros(size), np.zeros(size) ,np.zeros(size)
         rmse_array, rmse_alpha_array, rmse_psi_array = np.zeros(size), np.zeros(size), np.zeros(size)
         ami_p_array, ami_d_array =  np.zeros(size), np.zeros(size)
     
         for i,sim_beta_distance in enumerate(sim_beta_distance_array):
             
-            graph_all= graph_formation(
+            graph_object= GraphFormation(
                         n_patients=n_patients,
                          n_doctors=n_doctors,
-                         max_number_connections=50,
-                        beta_distance_graph = sim_beta_distance,seed=12)
-           
-            df, alpha_star, psi_star, alpha_class, psi_class, coor_patients, coor_doctors, D, beta_age_p_star, beta_age_d_star, beta_informed_p_star,\
-            beta_skilled_d_star, beta_distance_star, sim_patient_age_normed, sim_doctor_age_normed, sim_patient_informed, sim_doctor_skilled = graph_all
+                        beta_distance_graph = sim_beta_distance)
+            graph_object.do_the_graph()
             
-            density_array[i] = density(df)
-            print(f"density: {100*density_array[i]:2f}%")
-    
-            df['age_p'] = (df['age_p'] - df['age_p'].mean())/df['age_p'].std()
-            df['age_d'] = (df['age_d'] - df['age_d'].mean())/df['age_d'].std()
+            density_array[i] = graph_object.density
             
-            estimates =  get_estimations(df, nb_epochs=nb_epochs, initial_weights=None, target_loss=None, l_lambda=0, show_print=0, seed=j)
+            estimates =  get_estimations(graph_object.df, nb_epochs=nb_epochs, initial_weights=None, target_loss=None, l_lambda=0, show_print=0, seed=j)
             
             ef_patient_hat = np.array(estimates[1][0])
-            ef_doctor_hat = np.array(estimates[1][1])
-            beta_age_p[i] = estimates[1][2][0]
-            beta_age_d[i] = estimates[1][3][0]
-            beta_informed_p[i] = estimates[1][4][0]
-            beta_skilled_d[i] = estimates[1][5][0]
-            beta_distance[i] = estimates[1][6][0]
-            #print(f"BETA ESTIMATION ERROR: age patient:  {beta_age_p[i]-0.1}; age doctor: {beta_age_d[i]-0.1}; informed : {beta_informed_p[i]-1}; skilled: {beta_skilled_d[i]-1}; distance: {beta_distance[i] - sim_beta_distance}")  
+            ef_doctor_hat = np.array(estimates[1][1]) 
     
-            rmse_array[i] = rmse(ef_patient_hat, ef_doctor_hat, alpha_star, psi_star)[0]
+            rmse_array[i] = rmse(ef_patient_hat, ef_doctor_hat, graph_object.alpha_graph, graph_object.psi_graph)[0]
             #rmse_alpha_array[i] = rmse_alpha(ef_patient_hat, alpha_star)[0]
             #rmse_psi_array[i] = rmse_psi(ef_doctor_hat, psi_star)[0]
     
             # Initialise le modèle KMeans avec 3 et 2 clusters
-            kmeans_p = KMeans(n_clusters=3, random_state=1)
-            kmeans_d = KMeans(n_clusters=2, random_state=2)
+            kmeans_p = KMeans(n_clusters=3, random_state=j)
+            kmeans_d = KMeans(n_clusters=3, random_state=j)
             
             ef_patient_hat = np.array(ef_patient_hat).flatten()
             ef_doctor_hat = np.array(ef_doctor_hat).flatten()
@@ -234,14 +213,76 @@ def simulation_confidence_interval(n=10, sim_beta_distance_array = [-20,-15, -12
             cluster_patient = kmeans_p.labels_
             cluster_doctor = kmeans_d.labels_
     
-            ami_p_array[i], ami_d_array[i]  = metrics.adjusted_rand_score(alpha_class, cluster_patient), metrics.adjusted_rand_score(psi_class, cluster_doctor)
+            ami_p_array[i], ami_d_array[i]  = metrics.adjusted_rand_score(graph_object.alpha_class, cluster_patient), metrics.adjusted_rand_score(graph_object.psi_class, cluster_doctor)
 
             matrix[j][i][0] = density_array[i]
             matrix[j][i][1] = rmse_array[i]
             matrix[j][i][2] = ami_p_array[i]
             matrix[j][i][3] = ami_d_array[i]
 
+        print(f"Simulation {j+1}: done!")
+
     return matrix
+
+@decorateur.compute_time
+def simulation_ami_dilatation(n=10, sim_dilatation_array = [0.1, 0.5, 1, 2, 3, 4, 5, 6], nb_epochs=200, n_patients=1000, n_doctors=50 ):
+    
+    size = len(sim_beta_distance_array)
+    matrix = np.zeros((n,size,4))
+
+    for j in range(n):
+        density_array = np.zeros(size)
+        rmse_array, rmse_alpha_array, rmse_psi_array = np.zeros(size), np.zeros(size), np.zeros(size)
+        ami_p_array, ami_d_array =  np.zeros(size), np.zeros(size)
+    
+        for i,sim_dilatation in enumerate(sim_dilatation_array):
+            
+            graph_object= GraphFormation(
+                        n_patients=1000,
+                         n_doctors=50,
+                        beta_distance_graph = sim_beta_distance,
+                        dilatation_p = sim_dilatation,
+                        dilatation_d = sim_dilatation
+            )
+            graph_object.do_the_graph()
+            
+            density_array[i] = graph_object.density
+            print(f"density: {100*density_array[i]:2f}%")
+            
+            estimates =  get_estimations(graph_object.df, nb_epochs=nb_epochs, initial_weights=None, target_loss=None, l_lambda=0, show_print=0, seed=j)
+            
+            ef_patient_hat = np.array(estimates[1][0])
+            ef_doctor_hat = np.array(estimates[1][1]) 
+    
+            rmse_array[i] = rmse(ef_patient_hat, ef_doctor_hat, graph_object.alpha_graph, graph_object.psi_graph)[0]
+            #rmse_alpha_array[i] = rmse_alpha(ef_patient_hat, alpha_star)[0]
+            #rmse_psi_array[i] = rmse_psi(ef_doctor_hat, psi_star)[0]
+    
+            # Initialise le modèle KMeans avec 3 et 2 clusters
+            kmeans_p = KMeans(n_clusters=3, random_state=j)
+            kmeans_d = KMeans(n_clusters=3, random_state=j)
+            
+            ef_patient_hat = np.array(ef_patient_hat).flatten()
+            ef_doctor_hat = np.array(ef_doctor_hat).flatten()
+            
+            # Ajustement des Kmeans sur les ef estimés
+            kmeans_p.fit(ef_patient_hat.reshape(-1,1))
+            kmeans_d.fit(ef_doctor_hat.reshape(-1,1))
+           
+            # Ajouter les labels prédits au DataFrame
+            cluster_patient = kmeans_p.labels_
+            cluster_doctor = kmeans_d.labels_
+    
+            ami_p_array[i], ami_d_array[i]  = metrics.adjusted_rand_score(graph_object.alpha_class, cluster_patient), metrics.adjusted_rand_score(graph_object.psi_class, cluster_doctor)
+
+            matrix[j][i][0] = density_array[i]
+            matrix[j][i][1] = rmse_array[i]
+            matrix[j][i][2] = ami_p_array[i]
+            matrix[j][i][3] = ami_d_array[i]
+            
+
+    return matrix, sim_dilatation_array 
+
 
 def plot_hist_simulation_density_ami(matrix, rank=7, n=100):
     mean_density_array,  worst_5_ami_p, worst_5_ami_d, mean_rmse_array  = np.zeros(rank), np.zeros(rank), np.zeros(rank),  np.zeros(rank)
@@ -258,8 +299,8 @@ def plot_hist_simulation_density_ami(matrix, rank=7, n=100):
         
         mean_density_array[j] = density_array.mean()   # récupère la moyenne des densités sur l'ensemble des simulations pour chaque beta distance différent
         mean_rmse_array[j] = rmse_array.mean()
-        worst_5_ami_p[j] = np.sort(ami_p_array)[49]     # récupére la 5eme pire AMI pour un niveau de densité
-        worst_5_ami_d[j] = np.sort(ami_d_array)[49]
+        worst_5_ami_p[j] = np.sort(ami_p_array)[0]     # récupére la 5eme pire AMI pour un niveau de densité
+        worst_5_ami_d[j] = np.sort(ami_d_array)[0]
         
     for i in range(n):
         ami_p_plot, ami_d_plot, density_plot, rmse_plot = np.zeros(rank), np.zeros(rank), np.zeros(rank),  np.zeros(rank)

@@ -8,9 +8,10 @@ import time
 import random
 
 # module maison
-import decorateur
-import graph_formation
-import MF_HNS
+import script.decorateur as decorateur
+import script.graph_formation as graph_formation
+import script.MF_HNS as MF_HNS
+
 
 get_estimations = MF_HNS.get_estimations
 
@@ -142,3 +143,20 @@ def compute_cosine_similarity(distance_matrix_list_ef, triangle=True):
         return cosine_sim + np.transpose(cosine_sim)
     else:
         return cosine_sim
+
+
+
+#%%capture captured_output
+#results = robustesse_simulation.robustesse_simul_n_models(100, 0.85, graph_object)
+# Enregistrer le tuple sur le disque
+#with open('results_simulation_85.pkl', 'wb') as f:
+    #pickle.dump(results, f)
+
+# Charger la variable depuis le disque
+#with open('results_simulation_85.pkl', 'rb') as f:
+#    results_simulation = pickle.load(f)
+
+#Pour tester la robustesse des effets fixes, nous allons construire des matrices $A_{k}$ dont les composantes $(a_{ij}^{(k)})$ valent #$|\alpha_{i}^{(k)} - \alpha_{j}^{(k)}|$   (ou $d(\alpha_{i}^{(k)},\alpha_{j}^{(k)})$ de façon plus général). Nous allons ensuite comparer la similarité entre ces matrices $A_{k}$.
+
+#distance_matrix_list_ef_patient_triangle = robustesse_simulation.make_list_dist_ef_matrix(results_simulation[0])
+#distance_matrix_list_ef_docteur_triangle = robustesse_simulation.make_list_dist_ef_matrix(results_simulation[1])

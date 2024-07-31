@@ -114,7 +114,7 @@ class GraphFormation:
     def __init__(self,
                  n_patients,
                  n_doctors,
-                 max_number_connections,
+                 max_number_connections=1000,
                  beta_X_p_graph=0.2,
                  beta_X_d_graph=0.2,
                  beta_D_p_graph=1,
@@ -259,7 +259,7 @@ class GraphFormation:
 
         # Generate connection matrix
         A = np.zeros((self.n_patients, self.n_doctors))
-        if self.no_seed_for_link:
+        if self.no_seed_for_link==True:
             np.random.seed(None)
             random.seed(None)
             tf.random.set_seed(None)

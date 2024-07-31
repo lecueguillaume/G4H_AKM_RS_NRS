@@ -25,8 +25,9 @@ from keras import regularizers
 from sklearn.metrics import precision_score, recall_score, f1_score, mean_squared_error
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay # Confusion Matrix
 
-import decorateur
-import graph_formation
+import script.decorateur as decorateur
+import script.graph_formation as graph_formation
+
 GraphFormation = graph_formation.GraphFormation
 #tf.compat.v1.config.run_functions_eagerly(True)        
 #tf.compat.v1.disable_eager_execution()
@@ -195,7 +196,7 @@ def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, tar
 
         if show_time_execution == True:
             end_time = time.time()
-            print("temps d'execution pour l'entrainement: {end_time - start_time:.0f}")
+            print(f"temps d'execution pour l'entrainement: {end_time - start_time:.0f}")
         
         return loss_values, model.get_weights(), patient_id_mapping, doctor_id_mapping, model, history
 
