@@ -238,17 +238,16 @@ def simulation_ami_dilatation(n=10, sim_dilatation_array = [0.1, 0.5, 1, 2, 3, 4
         for i,sim_dilatation in enumerate(sim_dilatation_array):
             
             graph_object= GraphFormation(
-                        n_patients=1000,
-                         n_doctors=50,
-                        beta_distance_graph = sim_beta_distance,
+                        n_patients=n_patients,
+                         n_doctors= n_doctors,
+                        beta_distance_graph = -25,
                         dilatation_p = sim_dilatation,
                         dilatation_d = sim_dilatation
             )
             graph_object.do_the_graph()
             
             density_array[i] = graph_object.density
-            print(f"density: {100*density_array[i]:2f}%")
-            
+        
             estimates =  get_estimations(graph_object.df, nb_epochs=nb_epochs, initial_weights=None, target_loss=None, l_lambda=0, show_print=0, seed=j)
             
             ef_patient_hat = np.array(estimates[1][0])
