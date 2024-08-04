@@ -1,0 +1,9 @@
+Function simulation_ami_dilatation called with arguments () and keyword arguments {'n': 10, 'patient_dilatation': True, 'doctor_dilatation': False, 'sim_dilatation_array': [0.2, 0.5, 1, 2, 3, 4, 5, 6], 'sim_beta_distance_array': array([-25., -25., -25., -25., -25., -25., -25., -25.]), 'nb_epochs': 200, 'n_patients': 1000, 'n_doctors': 50}.
+Execution time: 22450 seconds.
+
+Function simulation_ami_dilatation called with arguments () and keyword arguments {'n': 10, 'patient_dilatation': True, 'doctor_dilatation': False, 'sim_dilatation_array': [0.2, 0.5, 1, 2, 3, 4, 5, 6], 'sim_beta_distance_array': array([-25., -25., -25., -25., -25., -25., -25., -25.]), 'nb_epochs': 200, 'n_patients': 1000, 'n_doctors': 50}.
+Execution time: 22022 seconds.
+
+Function simulation_ami_dilatation called with arguments () and keyword arguments {'n': 10, 'patient_dilatation': False, 'doctor_dilatation': True, 'sim_dilatation_array': [0.2, 0.5, 1, 2, 3, 4, 5, 6], 'sim_beta_distance_array': array([-25., -25., -25., -25., -25., -25., -25., -25.]), 'nb_epochs': 200, 'n_patients': 1000, 'n_doctors': 50}.
+Execution time: 25034 seconds.
+
