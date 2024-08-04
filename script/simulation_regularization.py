@@ -16,7 +16,7 @@ import script.density_ami_rmse_simulation as density_ami_rmse_simulation
 GraphFormation = graph_formation.GraphFormation
 get_estimations = MF_HNS.get_estimations
 
-@decorateur.compute_time
+@decorateur.log_execution_time('execution_details.txt')
 def plot_rmse_lambda( regu_lambdas = np.array([10**(-i) for i in range(5,11)]), nb_epochs=200, regularization="l2", save=True ):
     
     size = len(regu_lambdas)

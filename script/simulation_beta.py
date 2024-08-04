@@ -8,16 +8,15 @@ import time
 import random
 
 # module maison
-import decorateur
-import graph_formation
-import MF_HNS
-import density_ami_rmse_simulation
+import script.decorateur as decorateur
+import script.graph_formation as graph_formation
+import script.MF_HNS as MF_HNS
 
 GraphFormation = graph_formation.GraphFormation
 get_estimations = MF_HNS.get_estimations
 
 
-@decorateur.compute_time
+@decorateur.log_execution_time('execution_details.txt')
 def simulation_beta(n=100, nb_epochs=140, save=True):
     """
     Simule et estime les coefficients beta pour un graphe biparti, puis trace les distributions des estimations.
@@ -73,7 +72,7 @@ def simulation_beta(n=100, nb_epochs=140, save=True):
         axs[k].axvline(true_beta[k], color='green', linestyle='dashed', linewidth=2)
         axs[k].text(true_beta[k], max(np.histogram(beta[k], bins=20)[0]), f'Vrai beta: {true_beta[k]:.2f}', color='green')
     
-    # Ajuster l'espacement entre les sous-graphiques
+    # sauve le plot en png
     if save == True:
         plt.savefig('Simulation_estimation_beta.png')
     plt.tight_layout()

@@ -170,6 +170,7 @@ class GraphFormation:
         self.sim_patient_D = None
         self.sim_doctor_D = None 
         self.density = None
+        self.P = None
 
     def do_the_graph(self, show_time_execution=False): 
         
@@ -195,9 +196,9 @@ class GraphFormation:
         
         coor_patients = []
         coor_doctors = []
-        alpha_graph = []
+        alpha_graph = np.zeros((self.n_patients, self.nb_latent_factors))
         alpha_class = []
-        psi_graph = []
+        psi_graph = np.zeros((self.n_doctors, self.nb_latent_factors))
         psi_class = []
         rng = np.random.default_rng(self.seed)
         D = np.zeros([self.n_patients, self.n_doctors])
@@ -215,18 +216,33 @@ class GraphFormation:
         nb_class_alpha = len(self.alpha_law_weights)
         nb_class_psi = len(self.psi_law_weights)
 
-        # Generate fixed effects
-        for i in range(self.n_patients):
-            chosen_class = np.random.choice(np.arange(nb_class_alpha), p=self.alpha_law_weights)
-            alpha_class.append(chosen_class)
-            fe_vector = np.random.normal(alpha_law_means[chosen_class], alpha_law_stds[chosen_class], size=self.nb_latent_factors)
-            alpha_graph.append(fe_vector)
+        if self.nb_latent_factors == 1:
+            # Generate fixed effects
+            for i in range(self.n_patients):
+                chosen_class = np.random.choice(np.arange(nb_class_alpha), p=self.alpha_law_weights)
+                alpha_class.append(chosen_class)
+                fe_vector = np.random.normal(alpha_law_means[chosen_class], alpha_law_stds[chosen_class], size=self.nb_latent_factors)
+                alpha_graph[i] =  fe_vector
+    
+            for j in range(self.n_doctors):
+                chosen_class = np.random.choice(np.arange(nb_class_psi), p=self.psi_law_weights)
+                psi_class.append(chosen_class)
+                fe_vector = np.random.normal(psi_law_means[chosen_class], psi_law_stds[chosen_class], size=self.nb_latent_factors)
+                psi_graph[j] = fe_vector
 
-        for j in range(self.n_doctors):
-            chosen_class = np.random.choice(np.arange(nb_class_psi), p=self.psi_law_weights)
-            psi_class.append(chosen_class)
-            fe_vector = np.random.normal(psi_law_means[chosen_class], psi_law_stds[chosen_class], size=self.nb_latent_factors)
-            psi_graph.append(fe_vector)
+        else:        
+            # Generate fixed effects
+            for i in range(self.n_patients):
+                chosen_class = np.random.choice(np.arange(nb_class_alpha), p=self.alpha_law_weights)
+                alpha_class.append(chosen_class)
+                ef_vector = np.random.multivariate_normal(alpha_law_means[chosen_class], alpha_law_stds[chosen_class], size=1)
+                alpha_graph[i, :] = ef_vector
+    
+            for j in range(self.n_doctors):
+                chosen_class = np.random.choice(np.arange(nb_class_psi), p=self.psi_law_weights)
+                psi_class.append(chosen_class)
+                ef_vector = np.random.multivariate_normal(psi_law_means[chosen_class], psi_law_stds[chosen_class], size=1)
+                psi_graph[j, :] = ef_vector
 
         # Generate coordinates and distance matrix
         for i in range(self.n_patients):
@@ -259,6 +275,9 @@ class GraphFormation:
 
         # Generate connection matrix
         A = np.zeros((self.n_patients, self.n_doctors))
+        P = np.zeros((self.n_patients, self.n_doctors))
+
+        # Set randomness during the link formation process 
         if self.no_seed_for_link==True:
             np.random.seed(None)
             random.seed(None)
@@ -273,8 +292,9 @@ class GraphFormation:
                     T = np.dot(alpha_graph[i], psi_graph[j]) + self.beta_X_p_graph * self.sim_patient_X_normed[i] + self.beta_X_d_graph * self.sim_doctor_X_normed[j] \
                         + self.beta_D_p_graph * sim_patient_D[i] + self.beta_D_d_graph * sim_doctor_D[j] + self.beta_distance_graph * D[i][j]
                 p = 1 / (1 + np.exp(-T))
-                A[i][j] = np.random.binomial(1, p)[0]
-
+                P[i][j] = p
+                A[i][j] = np.random.binomial(1, p)
+                
         # Compile relations
         relation = A.flatten()
         dataframe = pd.DataFrame({
@@ -340,6 +360,7 @@ class GraphFormation:
         self.sim_patient_D= sim_patient_D
         self.sim_doctor_D = sim_doctor_D
         self.density = density
+        self.P = P
 
         if show_time_execution == True:
             end_time = time.time()

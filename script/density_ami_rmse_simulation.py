@@ -168,7 +168,7 @@ def plot_rmsedensity( sim_beta_distance_array = [-25, -20,-15, -12, -10,-8,-5, -
     
     return density_array, ami_p_array, ami_d_array, beta_age_p, beta_age_d, beta_informed_p, beta_skilled_d, beta_distance
 
-@decorateur.compute_time
+@decorateur.log_execution_time('execution_details.txt')
 def simulation_confidence_interval(n=10, sim_beta_distance_array = [-25, -20,-15, -12, -10,-8,-5, -3,], nb_epochs=200, n_patients=1000, n_doctors=50 ):
     
     size = len(sim_beta_distance_array)
@@ -224,9 +224,10 @@ def simulation_confidence_interval(n=10, sim_beta_distance_array = [-25, -20,-15
 
     return matrix
 
-@decorateur.compute_time
-def simulation_ami_dilatation(n=10, sim_dilatation_array = [0.1, 0.5, 1, 2, 3, 4, 5, 6], nb_epochs=200, n_patients=1000, n_doctors=50 ):
-    
+@decorateur.log_execution_time('execution_details.txt')
+def simulation_ami_dilatation(n=10, patient_dilatation = True, doctor_dilatation = True, sim_dilatation_array = [0.2, 0.5, 1, 2, 3, 4, 5, 6], sim_beta_distance_array = [-5,-8, -10, -12,-15,-20, -25,-30],  nb_epochs=200, n_patients=1000, n_doctors=50 ):
+
+    assert len(sim_dilatation_array) == len(sim_beta_distance_array)
     size = len(sim_beta_distance_array)
     matrix = np.zeros((n,size,4))
 
@@ -236,14 +237,31 @@ def simulation_ami_dilatation(n=10, sim_dilatation_array = [0.1, 0.5, 1, 2, 3, 4
         ami_p_array, ami_d_array =  np.zeros(size), np.zeros(size)
     
         for i,sim_dilatation in enumerate(sim_dilatation_array):
-            
-            graph_object= GraphFormation(
-                        n_patients=n_patients,
-                         n_doctors= n_doctors,
-                        beta_distance_graph = -25,
-                        dilatation_p = sim_dilatation,
-                        dilatation_d = sim_dilatation
-            )
+
+            if (patient_dilatation == True) and (doctor_dilatation == False):
+                
+                graph_object= GraphFormation(
+                            n_patients=n_patients,
+                             n_doctors= n_doctors,
+                            beta_distance_graph = sim_beta_distance_array[i],
+                            dilatation_p = sim_dilatation,
+                )
+            elif (patient_dilatation == False) and (doctor_dilatation == True):
+                graph_object= GraphFormation(
+                            n_patients=n_patients,
+                             n_doctors= n_doctors,
+                            beta_distance_graph = sim_beta_distance_array[i],
+                            dilatation_d = sim_dilatation
+                )
+            else:
+                graph_object= GraphFormation(
+                            n_patients=n_patients,
+                            n_doctors= n_doctors,
+                            beta_distance_graph = sim_beta_distance_array[i],
+                            dilatation_d = sim_dilatation,
+                            dilatation_p = sim_dilatation
+                )
+                
             graph_object.do_the_graph()
             
             density_array[i] = graph_object.density
@@ -280,11 +298,11 @@ def simulation_ami_dilatation(n=10, sim_dilatation_array = [0.1, 0.5, 1, 2, 3, 4
             matrix[j][i][3] = ami_d_array[i]
             
 
-    return matrix, sim_dilatation_array 
+    return matrix
 
 
-def plot_hist_simulation_density_ami(matrix, rank=7, n=100):
-    mean_density_array,  worst_5_ami_p, worst_5_ami_d, mean_rmse_array  = np.zeros(rank), np.zeros(rank), np.zeros(rank),  np.zeros(rank)
+def plot_hist_simulation_density_ami(matrix, rank=7, n=100, worst=1):
+    mean_density_array,  worst_ami_p, worst_ami_d, mean_rmse_array  = np.zeros(rank), np.zeros(rank), np.zeros(rank),  np.zeros(rank)
 
     # Crée une figure avec deux sous-graphiques (subplots)
     fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, figsize=(12, 12))
@@ -298,25 +316,27 @@ def plot_hist_simulation_density_ami(matrix, rank=7, n=100):
         
         mean_density_array[j] = density_array.mean()   # récupère la moyenne des densités sur l'ensemble des simulations pour chaque beta distance différent
         mean_rmse_array[j] = rmse_array.mean()
-        worst_5_ami_p[j] = np.sort(ami_p_array)[0]     # récupére la 5eme pire AMI pour un niveau de densité
-        worst_5_ami_d[j] = np.sort(ami_d_array)[0]
+        worst_ami_p[j] = np.sort(ami_p_array)[worst-1]     # récupére la 5eme pire AMI pour un niveau de densité
+        worst_ami_d[j] = np.sort(ami_d_array)[worst-1]
         
     for i in range(n):
         ami_p_plot, ami_d_plot, density_plot, rmse_plot = np.zeros(rank), np.zeros(rank), np.zeros(rank),  np.zeros(rank)
         for j in range(rank):
             density_plot[j], rmse_plot[j], ami_p_plot[j], ami_d_plot[j] = matrix[i][j][0], matrix[i][j][1], matrix[i][j][2], matrix[i][j][3]
             
-        ax1.plot(mean_density_array, ami_p_plot, c="blue", alpha = 5/n )
-        ax2.plot(mean_density_array, ami_d_plot, c="orange", alpha = 5/n )
-        ax3.plot(mean_density_array, rmse_plot, alpha = 5/n)
+        ax1.plot(mean_density_array, ami_p_plot, c="blue", alpha = 3/n )
+        ax2.plot(mean_density_array, ami_d_plot, c="orange", alpha = 3/n )
+        ax3.plot(mean_density_array, rmse_plot, alpha = 3/n)
 
-    ax1.plot(mean_density_array, worst_5_ami_p, c="red", label= "5th worst")
+    ax1.plot(mean_density_array, worst_ami_p, c="red", label= f"{worst}th/st worst")
     ax1.set_ylabel('AMI')
     ax1.set_xlabel('density')
+    ax1.set_ylim(0,1)
     ax1.legend()
-    ax2.plot(mean_density_array, worst_5_ami_d, c="red", label= "5th worst")
+    ax2.plot(mean_density_array, worst_ami_d, c="red", label= f"{worst}th/st worst")
     ax2.set_ylabel('AMI')
     ax2.set_xlabel('density')
+    ax2.set_ylim(0,1)
     ax2.legend()
     ax3.plot(mean_density_array, mean_rmse_array, c='red', label=f'mean of the {n} simulation')
     ax3.set_ylabel("RMSE")
@@ -324,12 +344,73 @@ def plot_hist_simulation_density_ami(matrix, rank=7, n=100):
     ax3.legend()
 
     ax4.plot(mean_density_array, mean_rmse_array)
-    ax5.plot(mean_density_array, worst_5_ami_p, c="blue")
-    ax5.plot(mean_density_array, worst_5_ami_d, c="orange")
+    ax5.plot(mean_density_array, worst_ami_p, c="blue")
+    ax5.plot(mean_density_array, worst_ami_d, c="orange")
+    ax5.set_ylim(0,1)
 
     ax1.set_title(f'AMI des patients des {n} simulations en fonction de la densité')
     ax2.set_title(f'AMI des docteurs (orange) des {n} simulations en fonction de la densité')
     ax3.set_title(f'RMSE des {n} en fonction de la densité')
     ax4.set_title(f'Moyenne des RMSE sur les {n} simulations en fonction de la densité')
-    ax5.set_title(f'5eme plus mauvais AMI des patients (bleu) et des docteurs (orange) en fonction de la densité')
+    ax5.set_title(f'{worst}eme/er plus mauvais AMI des patients (bleu) et des docteurs (orange) en fonction de la densité')
+    plt.show()
+
+
+def plot_hist_simulation_dilatation_ami(matrix, dilatation_array, n=10, x_label = "coefficient de dilatation", worst=1):
+
+    rank = len(dilatation_array)
+    mean_density_array,  worst_ami_p, worst_ami_d, mean_rmse_array  = np.zeros(rank), np.zeros(rank), np.zeros(rank),  np.zeros(rank)
+
+    # Crée une figure avec deux sous-graphiques (subplots)
+    fig, (ax1, ax2, ax3, ax4, ax5, ax6) = plt.subplots(6, 1, figsize=(12, 12))
+    fig.subplots_adjust(hspace=2, wspace=1)  # Ajuster l'espacement vertical et horizontal
+    
+    for j in range(rank):
+        density_array, ami_p_array, ami_d_array, rmse_array = np.zeros(n), np.zeros(n), np.zeros(n), np.zeros(n)
+        
+        for i in range(n):
+            density_array[i], rmse_array[i], ami_p_array[i], ami_d_array[i] = matrix[i][j][0], matrix[i][j][1], matrix[i][j][2], matrix[i][j][3]
+        
+        mean_density_array[j] = density_array.mean()   # récupère la moyenne des densités sur l'ensemble des simulations pour chaque beta distance différent
+        mean_rmse_array[j] = rmse_array.mean()
+        worst_ami_p[j] = np.sort(ami_p_array)[worst-1]     # récupére la 5eme pire AMI pour un niveau de densité
+        worst_ami_d[j] = np.sort(ami_d_array)[worst-1]
+        
+    for i in range(n):
+        ami_p_plot, ami_d_plot, density_plot, rmse_plot = np.zeros(rank), np.zeros(rank), np.zeros(rank),  np.zeros(rank)
+        for j in range(rank):
+            density_plot[j], rmse_plot[j], ami_p_plot[j], ami_d_plot[j] = matrix[i][j][0], matrix[i][j][1], matrix[i][j][2], matrix[i][j][3]
+            
+        ax1.plot(dilatation_array, ami_p_plot, c="blue", alpha = 3/n )
+        ax2.plot(dilatation_array, ami_d_plot, c="orange", alpha = 3/n )
+        ax3.plot(dilatation_array, rmse_plot, alpha = 3/n)
+
+    ax1.plot(dilatation_array, worst_ami_p, c="red", label= f"{worst}th/st worst")
+    ax1.set_ylabel('AMI')
+    ax1.set_xlabel(x_label)
+    ax1.set_ylim(0,1)
+    ax1.legend()
+    ax2.plot(dilatation_array, worst_ami_d, c="red", label= f"{worst}th/st worst")
+    ax2.set_ylabel('AMI')
+    ax2.set_xlabel(x_label)
+    ax2.set_ylim(0,1)
+    ax2.legend()
+    ax3.plot(dilatation_array, mean_rmse_array, c='red', label=f'mean of the {n} simulation')
+    ax3.set_ylabel("RMSE")
+    ax3.set_xlabel(x_label)
+    ax3.legend()
+
+    ax4.plot(dilatation_array, mean_rmse_array)
+    ax5.plot(dilatation_array, worst_ami_p, c="blue")
+    ax5.plot(dilatation_array, worst_ami_d, c="orange")
+    ax5.set_ylim(0,1)
+
+    ax1.set_title(f'AMI des patients des {n} simulations en fonction du/de la' + x_label)
+    ax2.set_title(f'AMI des docteurs (orange) des {n} simulations en fonction du/de la ' + x_label)
+    ax3.set_title(f'RMSE des {n} en fonction du/de la ' + x_label)
+    ax4.set_title(f'Moyenne des RMSE sur les {n} simulations en fonction du/de la ' + x_label)
+    ax5.set_title(f'{worst}eme/er plus mauvais AMI des patients (bleu) et des docteurs (orange) en fonction du/de la  ' + x_label)
+
+    ax6.plot(dilatation_array, mean_density_array)
+    ax6.set_title(f'density des graphes en fonction du/de la ' + x_label)
     plt.show()

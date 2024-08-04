@@ -19,6 +19,8 @@ simplefilter("ignore", category=ConvergenceWarning) # Useful for logistic regres
 from tensorflow.keras.layers import Input, Dot, Embedding, Add, Flatten, Activation, Layer # Optimisation via tensorflow.keras
 from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import Callback
+from tensorflow.keras import constraints
+
 pd.options.mode.chained_assignment = None  # default='warn' # Remove copy on slice warning
 import tensorflow as tf
 from keras import regularizers
@@ -52,7 +54,11 @@ class LossHistory(Callback):
     def on_epoch_end(self, epoch, logs=None):
         self.losses.append(logs.get('loss'))
 
-def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, target_loss=None, show_print=0, seed=12, l_lambda=0, regularization="l2", show_time_execution = False):
+class NonNegative(constraints.Constraint):
+    def __call__(self, w):
+        return w * tf.cast(tf.greater_equal(w, 0.), dtype=w.dtype)
+
+def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, target_loss=None, show_print=0, seed=12, l_lambda=0, show_time_execution = False, positive_constraint = False):
     """Etant donné un dataframe, get_estimations renvoie l'estimation des effets fixes et des Bêtas en utilisant TensorFlow.keras
 
     Args:
@@ -107,23 +113,19 @@ def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, tar
     distance_input = Input(shape=(1,), name="distance")
 
     # Incorporation des utilisateurs et des docteurs dans des espaces latents
-    if regularization == "l1":
+    if positive_constraint == True:
         
-        user_embedding = Embedding(name = 'patient_embedding', input_dim=num_patients, output_dim=dim_embedding, embeddings_regularizer=regularizers.l1(l_lambda))(user_input)
-        doctor_embedding = Embedding(name = 'doctor_embedding', input_dim=num_doctors, output_dim=dim_embedding, embeddings_regularizer=regularizers.l1(l_lambda))(doctor_input)
-    elif regularization == "l2":
+        user_embedding = Embedding(name = 'patient_embedding', input_dim=num_patients, output_dim=dim_embedding, embeddings_constraint = NonNegative, embeddings_regularizer=regularizers.l2(l_lambda))(user_input)
+        doctor_embedding = Embedding(name = 'doctor_embedding', input_dim=num_doctors, output_dim=dim_embedding, embeddings_constraint = NonNegative, embeddings_regularizer=regularizers.l2(l_lambda))(doctor_input)
+    else:
         user_embedding = Embedding(name = 'patient_embedding', input_dim=num_patients, output_dim=dim_embedding, embeddings_regularizer=regularizers.l2(l_lambda))(user_input)
         doctor_embedding = Embedding(name = 'doctor_embedding', input_dim=num_doctors, output_dim=dim_embedding, embeddings_regularizer=regularizers.l2(l_lambda))(doctor_input)
-    else:
-        raise ValueError("the regularization parameter must be 'l1' or 'l2'")
+
     
     # Obtention des vecteurs latents des utilisateurs et des docteurs
     user_latent = Flatten()(user_embedding)
     doctor_latent = Flatten()(doctor_embedding)
-
-    # Produit scalaire entre les vecteurs latents des utilisateurs et des docteurs
-    #dot_product = Dot(axes=1)([user_latent, doctor_latent])
-
+    
     # Création d'une couche pour paramétriser les Beta
     class CustomLayer(Layer):
         def __init__(self, **kwargs):
@@ -150,10 +152,10 @@ def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, tar
     linear_term = CustomLayer()([X_patient_input, X_doctor_input, D_patient_input, D_doctor_input, distance_input])  # X*beta
 
     if dim_embedding == 1:
-        output = Add()([user_latent, doctor_latent, linear_term]) # X*beta + psi_i + alpha_j
+    
+        output = Add()([user_latent, doctor_latent, linear_term])
     else:
-         # Produit scalaire entre les vecteurs latents des utilisateurs et des docteurs
-        dot_product = Dot(axes=1)([user_latent, doctor_latent]) 
+        dot_product = Dot(axes=1)([user_latent, doctor_latent])
         output = Add()([dot_product, linear_term])
     output = Activation('sigmoid')(output)  # sigma(.)
 
@@ -202,7 +204,7 @@ def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, tar
 
 
 @decorateur.compute_time
-def prediction_score(graph_object, nb_epochs = 100, train_test_split = 0.8, seed = 12, regularization = "l2", l_lambda= 1e-7, initial_weights=None, target_loss=None, show_print=0):
+def prediction_score(graph_object, nb_epochs = 100, train_test_split = 0.8, seed = 12, regularization = "l2", l_lambda= 0, initial_weights=None, target_loss=None, show_print=0, dim_embedding=1):
     """
     Calculer et évaluer le score de prédiction d'un modèle sur les données d'un objet graph_object.
 
@@ -259,7 +261,7 @@ def prediction_score(graph_object, nb_epochs = 100, train_test_split = 0.8, seed
     df_train ,df_test = df_shuffled.iloc[:train_indices,:] , df_shuffled.iloc[train_indices:,:]
 
     # Training sur les data d'entrainement
-    estimates = get_estimations(df_train, nb_epochs=nb_epochs, initial_weights=initial_weights, target_loss=target_loss, show_print=show_print, seed=seed,      regularization=regularization, l_lambda= l_lambda)
+    estimates = get_estimations(df_train, nb_epochs=nb_epochs, initial_weights=initial_weights, target_loss=target_loss, show_print=show_print, seed=seed,      regularization=regularization, l_lambda= l_lambda, dim_embedding=dim_embedding)
     model = estimates[4] 
     # Récupération de la loss
     history = estimates[5]
@@ -284,7 +286,7 @@ def prediction_score(graph_object, nb_epochs = 100, train_test_split = 0.8, seed
     loss_plot.text(min_val_loss_epoch, min_val_loss, f'Min: {min_val_loss:.4f}', color='red', fontsize=12)
 
     # Drop unwanted columns
-    X_test = df_test.drop(['y', 'class_p', 'class_d', 'ef_p_0', 'ef_d_0',], axis=1)
+    X_test = df_test[['i', 'j', 'X_p', 'X_d', 'D_p', 'D_d', 'distance']]
     
     # Pour pouvoir les rentrer dans le modèle
     input_data = [tf.constant(X_test[col].values.reshape(-1, 1), dtype=tf.float32) for col in X_test.columns]
@@ -324,7 +326,7 @@ def prediction_score(graph_object, nb_epochs = 100, train_test_split = 0.8, seed
     plt.show()
 
 @decorateur.compute_time
-def loss_vs_density(sim_beta_distance_array = [-20,-15, -12, -10,-7,-5, -3, -2,], nb_epochs = 120):
+def loss_vs_density(sim_beta_distance_array = [-20,-15, -12, -10,-7,-5, -3, -2,], nb_epochs = 120, dim_embedding=1):
     """
     Évalue la perte en fonction de la densité du graphe pour différentes valeurs de beta_distance.
 
@@ -354,7 +356,7 @@ def loss_vs_density(sim_beta_distance_array = [-20,-15, -12, -10,-7,-5, -3, -2,]
                     beta_distance_graph = sim_beta_distance)
         graph_object.do_the_graph()
         print(f"density of the graph: {graph_object.density*100:.2f}%")
-        prediction_score(graph_object, nb_epochs=nb_epochs)
+        prediction_score(graph_object, nb_epochs=nb_epochs, dim_embedding=dim_embedding)
 
 def hard_negative_sampling_first_step(dataframe,
                                       nb_Y = 1,
@@ -451,10 +453,6 @@ def HNS_and_estimates(dataframe,
     negative_connections = df[df['y'] == 0]
     negative_patients = negative_connections['i'].unique()
     highest_prediction_scores_indexes = np.zeros((len(negative_patients), M))
-    # Pour calculer les scores, il faut au préalable récupérer les âges et sexes normalisés.
-
-    df['X_p_normed'] = ( df['X_p'] - df['X_p'].mean() ) / df['X_p'].std()
-    df['X_d_normed'] = ( df['X_d'] - df['X_d'].mean() ) / df['X_d'].std()
 
     print(alpha_graph_training.shape, psi_graph_training.shape, beta_X_p_graph_training, beta_X_d_graph_training, beta_D_p_graph_training, beta_D_d_graph_training,  beta_distance_graph_training)
     
