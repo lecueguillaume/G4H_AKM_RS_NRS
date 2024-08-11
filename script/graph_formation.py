@@ -132,7 +132,9 @@ class GraphFormation:
                  dilatation_p=2,
                  dilatation_d=2,
                  std_multiplier_p=0,
-                 std_multiplier_d=0):
+                 std_multiplier_d=0,
+                 gaussian_sphere = False,
+                 radius=1):
 
         self.n_patients = n_patients
         self.n_doctors = n_doctors
@@ -155,6 +157,8 @@ class GraphFormation:
         self.dilatation_d = dilatation_d
         self.std_multiplier_p = std_multiplier_p
         self.std_multiplier_d = std_multiplier_d
+        self.gaussian_sphere = gaussian_sphere
+        self.radius = radius
         
         # Initialize attributes
         self.df = None
@@ -221,16 +225,16 @@ class GraphFormation:
             for i in range(self.n_patients):
                 chosen_class = np.random.choice(np.arange(nb_class_alpha), p=self.alpha_law_weights)
                 alpha_class.append(chosen_class)
-                fe_vector = np.random.normal(alpha_law_means[chosen_class], alpha_law_stds[chosen_class], size=self.nb_latent_factors)
+                fe_vector = np.random.normal(alpha_law_means[chosen_class], alpha_law_stds[chosen_class], size=1)
                 alpha_graph[i] =  fe_vector
     
             for j in range(self.n_doctors):
                 chosen_class = np.random.choice(np.arange(nb_class_psi), p=self.psi_law_weights)
                 psi_class.append(chosen_class)
-                fe_vector = np.random.normal(psi_law_means[chosen_class], psi_law_stds[chosen_class], size=self.nb_latent_factors)
+                fe_vector = np.random.normal(psi_law_means[chosen_class], psi_law_stds[chosen_class], size=1)
                 psi_graph[j] = fe_vector
 
-        else:        
+        elif self.gaussian_sphere == False:        
             # Generate fixed effects
             for i in range(self.n_patients):
                 chosen_class = np.random.choice(np.arange(nb_class_alpha), p=self.alpha_law_weights)
@@ -244,6 +248,25 @@ class GraphFormation:
                 ef_vector = np.random.multivariate_normal(psi_law_means[chosen_class], psi_law_stds[chosen_class], size=1)
                 psi_graph[j, :] = ef_vector
 
+        else:
+            centre_cluster_p = np.random.randn(nb_class_alpha, self.nb_latent_factors)
+            centre_cluster_d =  np.random.randn(nb_class_psi, self.nb_latent_factors)
+            
+            # Generate fixed effects with the gaussine sphere method
+            for i in range(self.n_patients):
+                chosen_class = np.random.choice(np.arange(nb_class_alpha), p=self.alpha_law_weights)
+                alpha_class.append(chosen_class)
+                ef_vector = np.random.multivariate_normal(centre_cluster_p[chosen_class], alpha_law_stds[chosen_class], size=1)
+                ef_vector = self.radius * ef_vector/ np.linalg.norm(ef_vector)
+                alpha_graph[i, :] = ef_vector
+    
+            for j in range(self.n_doctors):
+                chosen_class = np.random.choice(np.arange(nb_class_psi), p=self.psi_law_weights)
+                psi_class.append(chosen_class)
+                ef_vector = np.random.multivariate_normal(centre_cluster_d[chosen_class], psi_law_stds[chosen_class], size=1)
+                ef_vector = self.radius * ef_vector/ np.linalg.norm(ef_vector)
+                psi_graph[j, :] = ef_vector
+
         # Generate coordinates and distance matrix
         for i in range(self.n_patients):
             coor_patients.append(np.random.uniform(0, 1, 2))
@@ -252,6 +275,7 @@ class GraphFormation:
                     coor_doctors.append(np.random.uniform(0, 1, 2))
                 d = np.sqrt((coor_patients[i][0] - coor_doctors[j][0]) ** 2 + (coor_patients[i][1] - coor_doctors[j][1]) ** 2)
                 D[i][j] = d
+            
 
         # Generate continious and binary data
         sim_patient_X = rng.integers(1, 100, size=self.n_patients)

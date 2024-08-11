@@ -10,10 +10,10 @@ import random
 # module maison
 import script.decorateur as decorateur
 import script.graph_formation as graph_formation
-import script.MF_HNS as MF_HNS
+import script.MF_NRS as MF_NRS
 
 
-get_estimations = MF_HNS.get_estimations
+get_estimations = MF_NRS.get_estimations
 
 @decorateur.compute_time
 def robustesse_simul_n_models(n, train_ratio, graph_object, nb_epochs = 80, regularization="l2", l_lambda = 1e-7):

@@ -10,10 +10,10 @@ import random
 # module maison
 import script.decorateur as decorateur
 import script.graph_formation as graph_formation
-import script.MF_HNS as MF_HNS
+import script.MF_NRS as MF_NRS
 
 GraphFormation = graph_formation.GraphFormation
-get_estimations = MF_HNS.get_estimations
+get_estimations = MF_NRS.get_estimations
 
 # Clustering
 from sklearn.cluster import KMeans
@@ -40,7 +40,7 @@ def rmse_alpha(alpha_hat, alpha_star):
         return np.sqrt(S/len(alpha_hat))
 
 @decorateur.compute_time
-def plot_rmse_epochs(sim_beta_distance_array = [-25,-20, -17, -15,-12,-10, -8, -7,], epochs_step = 10, n=10, save=False):
+def plot_rmse_epochs(sim_beta_distance_array = [-25,-20, -17, -15,-12,-10, -8, -7,], epochs_step = 10, n=10, save=True):
 
     """
     Trace l'évolution de l'erreur quadratique moyenne (RMSE) des effets fixes à travers les époques pour différentes valeurs de densité (définies par sim_beta_distance).
@@ -85,12 +85,14 @@ def plot_rmse_epochs(sim_beta_distance_array = [-25,-20, -17, -15,-12,-10, -8, -
             rmse_array[i] = rmse(alpha_hat = alpha_hat, psi_hat = psi_hat, alpha_star = graph_object.alpha_graph, psi_star = graph_object.psi_graph)[0]
         plt.plot(np.arange(epochs_step, epochs_step*(n+1), epochs_step), rmse_array, label=f"beta distance = {sim_beta_distance}/ density = {graph_object.density*100:.2f}%")
 
-    plt.title("évolution du RMSE des effets fixes à travers le epochs pour différentes densité")
-
+    plt.title("évolution du RMSE des effets fixes à travers \n les epoques pour différentes densités")
+    plt.xlabel("epochs")
+    plt.ylabel('RMSE')
+    plt.legend()
     if save==True:
         # Sauvegarder le graphique en tant qu'image PNG
         plt.savefig('RMSE_vs_epochs_density.png')
-    plt.legend()
+   
     plt.show()      
 
 @decorateur.compute_time
@@ -169,7 +171,7 @@ def plot_rmsedensity( sim_beta_distance_array = [-25, -20,-15, -12, -10,-8,-5, -
     return density_array, ami_p_array, ami_d_array, beta_age_p, beta_age_d, beta_informed_p, beta_skilled_d, beta_distance
 
 @decorateur.log_execution_time('execution_details.txt')
-def simulation_confidence_interval(n=10, sim_beta_distance_array = [-25, -20,-15, -12, -10,-8,-5, -3,], nb_epochs=200, n_patients=1000, n_doctors=50 ):
+def simulation_density_ami(n=10, sim_beta_distance_array = [-25, -20,-15, -12, -10,-8,-5, -3,], nb_epochs=200, n_patients=1000, n_doctors=50, n_clusters_p = 3, n_clusters_d=3  ):
     
     size = len(sim_beta_distance_array)
     matrix = np.zeros((n,size,4))
@@ -199,8 +201,8 @@ def simulation_confidence_interval(n=10, sim_beta_distance_array = [-25, -20,-15
             #rmse_psi_array[i] = rmse_psi(ef_doctor_hat, psi_star)[0]
     
             # Initialise le modèle KMeans avec 3 et 2 clusters
-            kmeans_p = KMeans(n_clusters=3, random_state=j)
-            kmeans_d = KMeans(n_clusters=3, random_state=j)
+            kmeans_p = KMeans(n_clusters = n_clusters_p, random_state=j)
+            kmeans_d = KMeans(n_clusters = n_clusters_d, random_state=j)
             
             ef_patient_hat = np.array(ef_patient_hat).flatten()
             ef_doctor_hat = np.array(ef_doctor_hat).flatten()
@@ -301,7 +303,7 @@ def simulation_ami_dilatation(n=10, patient_dilatation = True, doctor_dilatation
     return matrix
 
 
-def plot_hist_simulation_density_ami(matrix, rank=7, n=100, worst=1):
+def plot_simulation_density_ami(matrix, rank=7, n=100, worst=1, save=True):
     mean_density_array,  worst_ami_p, worst_ami_d, mean_rmse_array  = np.zeros(rank), np.zeros(rank), np.zeros(rank),  np.zeros(rank)
 
     # Crée une figure avec deux sous-graphiques (subplots)
@@ -344,25 +346,32 @@ def plot_hist_simulation_density_ami(matrix, rank=7, n=100, worst=1):
     ax3.legend()
 
     ax4.plot(mean_density_array, mean_rmse_array)
-    ax5.plot(mean_density_array, worst_ami_p, c="blue")
-    ax5.plot(mean_density_array, worst_ami_d, c="orange")
+    ax5.plot(mean_density_array, worst_ami_p, c="blue", label="patient")
+    ax5.plot(mean_density_array, worst_ami_d, c="orange", label = "doctor")
     ax5.set_ylim(0,1)
+    ax5.legend()
+
+    if save == True:
+        # Enregistrement du graphique dans un fichier
+        fig.savefig('density_am.png', dpi=300, bbox_inches='tight')
 
     ax1.set_title(f'AMI des patients des {n} simulations en fonction de la densité')
     ax2.set_title(f'AMI des docteurs (orange) des {n} simulations en fonction de la densité')
     ax3.set_title(f'RMSE des {n} en fonction de la densité')
     ax4.set_title(f'Moyenne des RMSE sur les {n} simulations en fonction de la densité')
     ax5.set_title(f'{worst}eme/er plus mauvais AMI des patients (bleu) et des docteurs (orange) en fonction de la densité')
+
+    
     plt.show()
 
 
-def plot_hist_simulation_dilatation_ami(matrix, dilatation_array, n=10, x_label = "coefficient de dilatation", worst=1):
+def plot_simulation_dilatation_ami(matrix, dilatation_array, n=10, x_label = "coefficient de dilatation", worst=1, save = True):
 
     rank = len(dilatation_array)
     mean_density_array,  worst_ami_p, worst_ami_d, mean_rmse_array  = np.zeros(rank), np.zeros(rank), np.zeros(rank),  np.zeros(rank)
 
     # Crée une figure avec deux sous-graphiques (subplots)
-    fig, (ax1, ax2, ax3, ax4, ax5, ax6) = plt.subplots(6, 1, figsize=(12, 12))
+    fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(5, 1, figsize=(12, 12))
     fig.subplots_adjust(hspace=2, wspace=1)  # Ajuster l'espacement vertical et horizontal
     
     for j in range(rank):
@@ -400,17 +409,26 @@ def plot_hist_simulation_dilatation_ami(matrix, dilatation_array, n=10, x_label 
     ax3.set_xlabel(x_label)
     ax3.legend()
 
-    ax4.plot(dilatation_array, mean_rmse_array)
-    ax5.plot(dilatation_array, worst_ami_p, c="blue")
-    ax5.plot(dilatation_array, worst_ami_d, c="orange")
-    ax5.set_ylim(0,1)
+ 
+    ax4.plot(dilatation_array, worst_ami_p, c="blue", label="patient")
+    ax4.plot(dilatation_array, worst_ami_d, c="orange", label='doctor')
+    ax4.set_ylim(0,1)
+    ax4.set_ylabel("AMI")
+    ax4.set_xlabel(x_label)
+    ax4.legend()
+    
+    ax1.set_title(f'AMI des patients des {n} simulations en fonction du ' + x_label)
+    ax2.set_title(f'AMI des docteurs (orange) des {n} simulations en fonction du  ' + x_label)
+    ax3.set_title(f'RMSE des {n} en fonction du ' + x_label)
+    ax4.set_title(f'{worst}eme/er plus mauvais AMI des patients (bleu) et des docteurs (orange) en fonction du ' + x_label)
 
-    ax1.set_title(f'AMI des patients des {n} simulations en fonction du/de la' + x_label)
-    ax2.set_title(f'AMI des docteurs (orange) des {n} simulations en fonction du/de la ' + x_label)
-    ax3.set_title(f'RMSE des {n} en fonction du/de la ' + x_label)
-    ax4.set_title(f'Moyenne des RMSE sur les {n} simulations en fonction du/de la ' + x_label)
-    ax5.set_title(f'{worst}eme/er plus mauvais AMI des patients (bleu) et des docteurs (orange) en fonction du/de la  ' + x_label)
+    ax5.plot(dilatation_array, mean_density_array)
+    ax5.set_title(f'density des graphes en fonction du ' + x_label)
+    ax5.set_ylabel("density")
+    ax5.set_xlabel(x_label)
 
-    ax6.plot(dilatation_array, mean_density_array)
-    ax6.set_title(f'density des graphes en fonction du/de la ' + x_label)
+    if save == True:
+        # Enregistrement du graphique dans un fichier
+        fig.savefig('dilatation_ami.png', dpi=300, bbox_inches='tight')
+         
     plt.show()
