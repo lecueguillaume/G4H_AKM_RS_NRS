@@ -22,6 +22,7 @@ from tensorflow.keras.layers import Input, Dot, Embedding, Add, Flatten, Activat
 from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import Callback
 from tensorflow.keras import constraints
+from tensorflow.keras.initializers import RandomNormal
 
 pd.options.mode.chained_assignment = None  # default='warn' # Remove copy on slice warning
 import tensorflow as tf
@@ -37,7 +38,7 @@ GraphFormation = graph_formation.GraphFormation
 #tf.compat.v1.disable_eager_execution()
 
 ########################################################################################################################################
-############################################# MATRIX FACTORIZATION #####################################################################
+############################################# MATRIX FACTORIZATION & NRS #####################################################################
 ########################################################################################################################################
 
 # Pour arrêter la descente lorsque la loss est suffisamment faible
@@ -64,7 +65,16 @@ class NonNegative(constraints.Constraint):
     def __call__(self, w):
         return w * tf.cast(tf.greater_equal(w, 0.), dtype=w.dtype)
 
-def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, target_loss=None, show_print=0, seed=12, l_lambda=0, show_time_execution = False, positive_constraint = False, valid_split=0.):
+# Définir une contrainte personnalisée pour normaliser les vecteurs d'embedding sur une sphère
+class SphereConstraint(constraints.Constraint):
+    def __init__(self, radius):
+        self.radius = radius
+
+    def __call__(self, w):
+        norms = tf.sqrt(tf.reduce_sum(tf.square(w), axis=1, keepdims=True))
+        return w / (norms / self.radius)
+
+def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, target_loss=None, show_print=0, seed=12, l_lambda=0, show_time_execution = False, constraint = None, valid_split=0., cosine_sim = False, radius_constraint=4, algorithm = "MF"):
     """Etant donné un dataframe, get_estimations renvoie l'estimation des effets fixes et des Bêtas en utilisant TensorFlow.keras
 
     Args:
@@ -119,10 +129,10 @@ def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, tar
     distance_input = Input(shape=(1,), name="distance")
 
     # Incorporation des utilisateurs et des docteurs dans des espaces latents
-    if positive_constraint == True:
+    if constraint == "sphere":
         
-        user_embedding = Embedding(name = 'patient_embedding', input_dim=num_patients, output_dim=dim_embedding, embeddings_constraint = NonNegative, embeddings_regularizer=regularizers.l2(l_lambda))(user_input)
-        doctor_embedding = Embedding(name = 'doctor_embedding', input_dim=num_doctors, output_dim=dim_embedding, embeddings_constraint = NonNegative, embeddings_regularizer=regularizers.l2(l_lambda))(doctor_input)
+        user_embedding = Embedding(name = 'patient_embedding', input_dim=num_patients, output_dim=dim_embedding, embeddings_constraint = SphereConstraint(radius_constraint) , embeddings_regularizer=regularizers.l2(l_lambda))(user_input)
+        doctor_embedding = Embedding(name = 'doctor_embedding', input_dim=num_doctors, output_dim=dim_embedding, embeddings_constraint = SphereConstraint(radius_constraint), embeddings_regularizer=regularizers.l2(l_lambda))(doctor_input)
     else:
         user_embedding = Embedding(name = 'patient_embedding', input_dim=num_patients, output_dim=dim_embedding, embeddings_regularizer=regularizers.l2(l_lambda))(user_input)
         doctor_embedding = Embedding(name = 'doctor_embedding', input_dim=num_doctors, output_dim=dim_embedding, embeddings_regularizer=regularizers.l2(l_lambda))(doctor_input)
@@ -154,16 +164,47 @@ def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, tar
                         self.beta_distance * distance_input
             return linear_term
 
-    # Ajout de la couche personnalisée dans le modèle
-    linear_term = CustomLayer()([X_patient_input, X_doctor_input, D_patient_input, D_doctor_input, distance_input])  # X*beta
+        # Function to calculate weighted cosine similarity
+    def weighted_cosine_similarity(vectors):
+        u, v = vectors
+        u_norm = tf.norm(u, axis=-1, keepdims=True)
+        v_norm = tf.norm(v, axis=-1, keepdims=True)
+        dot_product = tf.reduce_sum(u * v, axis=-1)
+        cosine_sim = dot_product / (u_norm * v_norm + K.epsilon())
+        return cosine_sim
 
-    if dim_embedding == 1:
+    if algorithm == "MF":
+
+        # Ajout de la couche personnalisée dans le modèle
+        linear_term = CustomLayer()([X_patient_input, X_doctor_input, D_patient_input, D_doctor_input, distance_input])  # X*beta
     
-        output = Add()([user_latent, doctor_latent, linear_term])
+        if dim_embedding == 1:
+        
+            output = Add()([user_latent, doctor_latent, linear_term])
+        elif cosine_sim == True:
+            cosine_sim = Lambda(weighted_cosine_similarity)([user_latent, doctor_latent])
+            weighted_cosine_sim = cosine_sim * custom_layer.beta_cosine  # Apply the learned weight to cosine similarity
+            output = Add()([weighted_cosine_sim, linear_term])
+        else:
+            dot_product = Dot(axes=1)([user_latent, doctor_latent])
+            output = Add()([dot_product, linear_term])
+        output = Activation('sigmoid')(output)  # sigma(.)
+
+    elif algorithm == "NRS":
+
+        # Concatenate additional features, patient embedding, and doctor embedding
+        x = Concatenate()([user_latent, doctor_latent,  X_patient_input, X_doctor_input, D_patient_input, D_doctor_input, distance_input])
+
+        # Fully connected layers with tanh activation
+        x = Dense(20, activation='sigmoid', kernel_initializer=RandomNormal(mean=0.0, stddev=0.5))(x)
+        x = Dense(30, activation='sigmoid', kernel_initializer=RandomNormal(mean=0.0, stddev=0.5))(x)
+    
+        # Output layer with sigmoid activation
+        output = Dense(1, activation='sigmoid', kernel_initializer=RandomNormal(mean=0.0, stddev=0.5))(x)
+
     else:
-        dot_product = Dot(axes=1)([user_latent, doctor_latent])
-        output = Add()([dot_product, linear_term])
-    output = Activation('sigmoid')(output)  # sigma(.)
+        raise ValueError("algorithmes disponibles: MF et NRS")
+        
 
     # Création du modèle
     model = Model(inputs=[user_input, doctor_input, X_patient_input, X_doctor_input, D_patient_input, D_doctor_input, distance_input], outputs=output)
@@ -208,111 +249,13 @@ def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, tar
         
         return loss_values, model.get_weights(), patient_id_mapping, doctor_id_mapping, model, history
 
-######################################################################################################################
-###################################################### NRS ###########################################################
-######################################################################################################################
-
-def NRS(df, nb_epochs=50, dim_embedding=1, initial_weights=None, target_loss=None, show_print=0, seed=12, l_lambda=0, show_time_execution = False, positive_constraint = False, valid_split=0.):
-    
-    # fixation des seeds pour être reproductible
-    random.seed(seed)
-    np.random.seed(seed)
-    tf.random.set_seed(seed)
-    
-    # Définition des dimensions
-    num_patients = df['i'].nunique()
-    num_doctors = df['j'].nunique()
-
-    # Crée un LabelEncoder pour les ID des patients et des docteurs, utile si les id ne sont pas nécessairement une suite consécutive d'entiers (1, 2, ..., n)
-    patient_encoder = LabelEncoder()
-    i_encoded = patient_encoder.fit_transform(df['i'])
-
-    doctor_encoder = LabelEncoder()
-    j_encoded = doctor_encoder.fit_transform(df['j'])
-
-    # Enregistrer les mappings ID -> entier pour retrouver les bons indices associés à chaque patient/docteur si besoin
-    patient_id_mapping = dict(zip(patient_encoder.classes_, range(num_patients)))
-    doctor_id_mapping = dict(zip(doctor_encoder.classes_, range(num_doctors)))
-
-    y = df['y'].values
-    df = df.astype(np.float32)
-
-    # Renormalisation des variables X (comme lors de la génération)
-    df['X_p'] = ( df['X_p'] -  df['X_p'].mean())/ df['X_p'].std()
-    df['X_d'] = ( df['X_d'] -  df['X_d'].mean())/  df['X_d'].std()
-    
-    X = [i_encoded, j_encoded, df['X_p'].values, df['X_d'].values, df['D_p'].values,\
-            df['D_d'].values, df['distance'].values]
-     
-    # Entrées du modèle
-    user_input = Input(shape=(1,), name="i")
-    doctor_input = Input(shape=(1,), name="j")
-    X_patient_input = Input(shape=(1,), name='X_p')
-    X_doctor_input = Input(shape=(1,), name='X_d')
-    D_patient_input = Input(shape=(1,), name='D_p')
-    D_doctor_input = Input(shape=(1,), name='D_d')
-    distance_input = Input(shape=(1,), name="distance")
-
-    patient_embedding = Embedding(name = 'patient_embedding', input_dim=num_patients, output_dim=dim_embedding, embeddings_regularizer=regularizers.l2(l_lambda))(user_input)
-    doctor_embedding = Embedding(name = 'doctor_embedding', input_dim=num_doctors, output_dim=dim_embedding, embeddings_regularizer=regularizers.l2(l_lambda))(doctor_input)
-
-    # Obtention des vecteurs latents des utilisateurs et des docteurs
-    patient_latent = Flatten()(patient_embedding)
-    doctor_latent = Flatten()(doctor_embedding)
-    
-    x = Concatenate()([patient_embedding, doctor_embedding])
-    x = Dense(10, kernel_initializer='he_normal')(x)
-    x = Activation('relu')(x)
-    x = Dense(1, kernel_initializer='he_normal')(x)
-    output = Activation('sigmoid')(x)
-    
-    # Création du modèle
-    model = Model(inputs=[user_input, doctor_input, X_patient_input, X_doctor_input, D_patient_input, D_doctor_input, distance_input], outputs=output)
-    opt = Adam(learning_rate=0.001)
-    model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
-    # Chargement des poids initiaux si disponibles (utile pour reprendre l'entraînement)
-    if initial_weights != None:
-        model.set_weights(initial_weights)
-
-    # Ajout du rappel pour arrêter l'entraînement seulement si la perte atteint un seuil
-    if target_loss != None:
-        callbacks = []
-        callbacks.append(StopTrainingBelowLoss(target_loss))
-        # Initialisation du nombre d'époques
-        epoch = 0
-    # Boucle d'entraînement jusqu'à ce que la perte atteigne le seuil
-        while True:
-            # Entraînement d'une époque
-            history = model.fit(X, y, epochs=1, batch_size=64, validation_split=valid_split, verbose=show_print, callbacks=callbacks)
-
-            # Incrémentation du nombre d'époques
-            epoch += 1
-
-            # Vérification si l'entraînement doit être arrêté
-            if model.stop_training:
-                break
-        return epoch, model.get_weights(), patient_id_mapping, doctor_id_mapping, model
-    else:
-        # Ajout du rappel pour enregistrer la perte
-        loss_history = LossHistory()
-        callbacks = [loss_history]
-        # Entraînement du modèle
-        #model.fit(X, y, epochs=nb_epochs, batch_size=64, validation_split=0.2, verbose=show_print, callbacks=callbacks)
-        history = model.fit(X, y, epochs=nb_epochs, batch_size=64, validation_split=valid_split, verbose=show_print, callbacks=callbacks) # Pour ne pas afficher le print des epochs
-        loss_values = loss_history.losses
-
-        if show_time_execution == True:
-            end_time = time.time()
-            print(f"temps d'execution pour l'entrainement: {end_time - start_time:.0f}")
-        
-        return loss_values, model.get_weights(), patient_id_mapping, doctor_id_mapping, model, history
 
 #########################################################################################################################################
 ############################################ FONCTIONS POUR PLOT ########################################################################
 #########################################################################################################################################
 
 @decorateur.compute_time
-def prediction_score(graph_object, nb_epochs = 100, train_test_split = 0.8, seed = 12, l_lambda= 0, initial_weights=None, target_loss=None, show_print=0, dim_embedding=1, valid_split = 0.05):
+def prediction_score(graph_object, nb_epochs = 100, train_test_split = 0.8, seed = 12, l_lambda= 0, initial_weights=None, target_loss=None, show_print=0, dim_embedding=1, valid_split = 0.05, algorithm = "MF"):
     """
     Calculer et évaluer le score de prédiction d'un modèle sur les données d'un objet graph_object.
 
@@ -369,7 +312,7 @@ def prediction_score(graph_object, nb_epochs = 100, train_test_split = 0.8, seed
     df_train ,df_test = df_shuffled.iloc[:train_indices,:] , df_shuffled.iloc[train_indices:,:]
 
     # Training sur les data d'entrainement
-    estimates = get_estimations(df_train, nb_epochs=nb_epochs, initial_weights=initial_weights, target_loss=target_loss, show_print=show_print, seed=seed,  l_lambda= l_lambda, dim_embedding=dim_embedding, valid_split=valid_split)
+    estimates = get_estimations(df_train, nb_epochs=nb_epochs, initial_weights=initial_weights, target_loss=target_loss, show_print=show_print, seed=seed,  l_lambda= l_lambda, dim_embedding=dim_embedding, valid_split=valid_split,  algorithm =  algorithm)
     model = estimates[4] 
     # Récupération de la loss
     history = estimates[5]
@@ -430,13 +373,14 @@ def prediction_score(graph_object, nb_epochs = 100, train_test_split = 0.8, seed
     beta_D_p = estimates[1][4]
     beta_D_d = estimates[1][5]
     beta_distance = estimates[1][6]
-    
-    print(f"ESTIMATION BETA: X p {beta_X_p}; X d {beta_X_d}; D_p {beta_D_p}; D_d {beta_D_d}; distance {beta_distance}")
-    print(f"ERROR ESTIMATION BETA: X p {beta_X_p-graph_object.beta_X_p_graph}; X d {beta_X_d-graph_object.beta_X_d_graph}; D_p {beta_D_p-graph_object.beta_D_p_graph}; D_d {beta_D_d-graph_object.beta_D_d_graph}; distance {beta_distance - graph_object.beta_distance_graph}")
+
+    if algorithm == "MF":
+        print(f"ESTIMATION BETA: X p {beta_X_p}; X d {beta_X_d}; D_p {beta_D_p}; D_d {beta_D_d}; distance {beta_distance}")
+        print(f"ERROR ESTIMATION BETA: X p {beta_X_p-graph_object.beta_X_p_graph}; X d {beta_X_d-graph_object.beta_X_d_graph}; D_p {beta_D_p-graph_object.beta_D_p_graph}; D_d {beta_D_d-    graph_object.beta_D_d_graph}; distance {beta_distance - graph_object.beta_distance_graph}")
     plt.show()
 
 @decorateur.compute_time
-def loss_vs_density(sim_beta_distance_array = [-20,-15, -12, -10,-7,-5, -3, -2,], nb_epochs = 120, dim_embedding=1, valid_split=0.05):
+def loss_vs_density(sim_beta_distance_array = [-20,-15, -12, -10,-7,-5, -3, -2,], nb_epochs = 120,  valid_split=0.1,  alpha_law_means=[0,1,2], psi_law_means= [0,1,2], gaussian_sphere=False, std_multiplier_p=0, std_multiplier_d=0, nb_latent_factors=1, radius=4, dilatation_p=2, dilatation_d=2, seed = 12):
     """
     Évalue la perte en fonction de la densité du graphe pour différentes valeurs de beta_distance.
 
@@ -458,15 +402,29 @@ def loss_vs_density(sim_beta_distance_array = [-20,-15, -12, -10,-7,-5, -3, -2,]
     --------
     loss_vs_density(sim_beta_distance_array=[-15, -10, -5], nb_epochs=100)
     """
+
+    identity_matrices = np.array([np.eye(nb_latent_factors) for _ in range(3)])
     for sim_beta_distance in sim_beta_distance_array:
         graph_object= GraphFormation(
                     n_patients=1000,
                      n_doctors=50,
-                     max_number_connections=50,
-                    beta_distance_graph = sim_beta_distance)
+                    beta_distance_graph = sim_beta_distance,
+                    alpha_law_means= alpha_law_means,
+                        psi_law_means = psi_law_means,
+                        std_multiplier_d= std_multiplier_d,
+                        std_multiplier_p = std_multiplier_p,
+                        gaussian_sphere = gaussian_sphere,
+                        nb_latent_factors=nb_latent_factors,
+                        dilatation_p=dilatation_p,
+                        dilatation_d=dilatation_p,
+                        radius=radius,
+                        psi_law_stds= identity_matrices,
+                        alpha_law_stds = identity_matrices,
+                        seed = seed
+                        )
         graph_object.do_the_graph()
         print(f"density of the graph: {graph_object.density*100:.2f}%")
-        prediction_score(graph_object, nb_epochs=nb_epochs, dim_embedding=dim_embedding, valid_split = valid_split)
+        prediction_score(graph_object, nb_epochs=nb_epochs, dim_embedding= nb_latent_factors, valid_split = valid_split)
 
 
 

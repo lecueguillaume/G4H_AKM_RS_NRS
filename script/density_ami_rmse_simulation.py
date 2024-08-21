@@ -31,16 +31,23 @@ def rmse_psi(psi_hat, psi_star):
     S = 0
     for j in range(len(psi_hat)):
         S += (psi_hat[j] - psi_star[j])**2
-        return np.sqrt(S/len(psi_hat))
+    return np.sqrt(S/len(psi_hat))
 
 def rmse_alpha(alpha_hat, alpha_star):
     S = 0
     for j in range(len(alpha_hat)):
         S += (alpha_hat[j] - alpha_star[j])**2
-        return np.sqrt(S/len(alpha_hat))
+    return np.sqrt(S/len(alpha_hat))
+
+def rmse_multiD(alpha_hat, psi_hat, alpha_star, psi_star):
+    S = 0
+    for i in range(alpha_hat.shape[0]):
+        for j in range(psi_hat.shape[0]):
+            S += (np.dot(alpha_hat[i], psi_hat[j]) - np.dot(psi_star[j],alpha_star[i]))**2
+    return np.sqrt(S/(psi_hat.shape[0]*alpha_hat.shape[0]))
 
 @decorateur.compute_time
-def plot_rmse_epochs(sim_beta_distance_array = [-25,-20, -17, -15,-12,-10, -8, -7,], epochs_step = 10, n=10, save=True):
+def plot_rmse_epochs(sim_beta_distance_array = [-25,-20, -17, -15,-12,-10, -8, -7,], epochs_step = 10, n=10, save=True, algorithm = "MF"):
 
     """
     Trace l'évolution de l'erreur quadratique moyenne (RMSE) des effets fixes à travers les époques pour différentes valeurs de densité (définies par sim_beta_distance).
@@ -77,9 +84,9 @@ def plot_rmse_epochs(sim_beta_distance_array = [-25,-20, -17, -15,-12,-10, -8, -
         
         for i,step in enumerate(np.arange(epochs_step, epochs_step*(n+1), epochs_step)):
             if i==0:
-                estimates = get_estimations( graph_object.df, nb_epochs=epochs_step, show_print=0,  initial_weights=None)
+                estimates = get_estimations( graph_object.df, nb_epochs=epochs_step, show_print=0,  initial_weights=None, algorithm = algorithm )
             else:
-                estimates = get_estimations( graph_object.df, nb_epochs=epochs_step, show_print=0,  initial_weights=estimates[1])
+                estimates = get_estimations( graph_object.df, nb_epochs=epochs_step, show_print=0,  initial_weights=estimates[1], algorithm = algorithm )
             alpha_hat = estimates[1][0]
             psi_hat = estimates[1][1]
             rmse_array[i] = rmse(alpha_hat = alpha_hat, psi_hat = psi_hat, alpha_star = graph_object.alpha_graph, psi_star = graph_object.psi_graph)[0]
@@ -87,13 +94,61 @@ def plot_rmse_epochs(sim_beta_distance_array = [-25,-20, -17, -15,-12,-10, -8, -
 
     plt.title("évolution du RMSE des effets fixes à travers \n les epoques pour différentes densités")
     plt.xlabel("epochs")
-    plt.ylabel('RMSE')
+    plt.ylabel('RMSE'),
     plt.legend()
     if save==True:
         # Sauvegarder le graphique en tant qu'image PNG
         plt.savefig('RMSE_vs_epochs_density.png')
    
     plt.show()      
+
+
+@decorateur.compute_time
+def plot_rmse_epochs_multiD(sim_beta_distance_array = [-25,-20, -17, -15,-12,-10, -8, -7,], epochs_step = 10, n=10, save=True, alpha_law_means=[[0,1], [1,-1], [2,0]], psi_law_means= [[1,1], [1,-1], [-1,2]], gaussian_sphere=False, std_multiplier_p=0, std_multiplier_d=0, nb_latent_factors=2, radius=4, dilatation_p=1.5, dilatation_d = 1.5, seed = 12, algorithm = "MF"):
+
+    identity_matrices = np.array([np.eye(nb_latent_factors) for _ in range(3)])
+    
+    for sim_beta_distance in sim_beta_distance_array:
+        
+        rmse_array = np.zeros(n)
+        graph_object= GraphFormation(
+                        n_patients=1000,
+                         n_doctors=50,
+                        alpha_law_means= alpha_law_means,
+                        psi_law_means = psi_law_means,
+                        std_multiplier_d= std_multiplier_d,
+                        std_multiplier_p = std_multiplier_p,
+                        gaussian_sphere = gaussian_sphere,
+                        nb_latent_factors=nb_latent_factors,
+                        beta_distance_graph = sim_beta_distance,
+                        dilatation_p=dilatation_p,
+                        dilatation_d=dilatation_p,
+                        radius=radius,
+                        psi_law_stds= identity_matrices,
+                        alpha_law_stds = identity_matrices,
+                        seed = seed
+                        )
+        graph_object.do_the_graph()
+        
+        for i,step in enumerate(np.arange(epochs_step, epochs_step*(n+1), epochs_step)):
+            if i==0:
+                estimates = get_estimations( graph_object.df, nb_epochs=epochs_step, show_print=0,  initial_weights=None, dim_embedding = nb_latent_factors, algorithm = algorithm )
+            else:
+                estimates = get_estimations( graph_object.df, nb_epochs=epochs_step, show_print=0,  initial_weights=estimates[1], dim_embedding = nb_latent_factors, algorithm  = algorithm )
+            alpha_hat = estimates[1][0]
+            psi_hat = estimates[1][1]
+            rmse_array[i] = rmse_multiD(alpha_hat = alpha_hat, psi_hat = psi_hat, alpha_star = graph_object.alpha_graph, psi_star = graph_object.psi_graph)
+        plt.plot(np.arange(epochs_step, epochs_step*(n+1), epochs_step), rmse_array, label=f"beta distance = {sim_beta_distance}/ density = {graph_object.density*100:.2f}%")
+
+    plt.title("évolution du RMSE des effets fixes à travers \n les epoques pour différentes densités")
+    plt.xlabel("epochs")
+    plt.ylabel('RMSE multidimensionnel')
+    plt.legend()
+    if save==True:
+        # Sauvegarder le graphique en tant qu'image PNG
+        plt.savefig('RMSE_vs_epochs_density_multiD.png')
+   
+    plt.show()  
 
 @decorateur.compute_time
 def plot_rmsedensity( sim_beta_distance_array = [-25, -20,-15, -12, -10,-8,-5, -3,], nb_epochs = 200):

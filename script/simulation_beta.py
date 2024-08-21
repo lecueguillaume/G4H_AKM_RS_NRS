@@ -10,10 +10,10 @@ import random
 # module maison
 import script.decorateur as decorateur
 import script.graph_formation as graph_formation
-import script.MF_HNS as MF_HNS
+import script.MF_NRS as MF_NRS
 
 GraphFormation = graph_formation.GraphFormation
-get_estimations = MF_HNS.get_estimations
+get_estimations = MF_NRS.get_estimations
 
 
 @decorateur.log_execution_time('execution_details.txt')

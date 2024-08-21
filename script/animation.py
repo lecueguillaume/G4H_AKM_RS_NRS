@@ -23,7 +23,7 @@ get_estimations = MF_NRS.get_estimations
 #################################################################################################################################
 
 @decorateur.compute_time
-def animation_embedding_1D(graph_object, nb_epochs=100, who = 'patient' , interval=200):
+def animation_embedding_1D(graph_object, nb_epochs=100, who = 'patient' , interval=200, algorithm = "MF"):
     # Create figure and axis
     fig, ax = plt.subplots(1,1,figsize=(12, 12))
 
@@ -33,7 +33,7 @@ def animation_embedding_1D(graph_object, nb_epochs=100, who = 'patient' , interv
     B = np.zeros((nb_epochs, graph_object.n_doctors))  
 
     # Initialization
-    estimates = get_estimations(graph_object.df, initial_weights=None, nb_epochs=1, valid_split = 0.01)
+    estimates = get_estimations(graph_object.df, initial_weights=None, nb_epochs=1, valid_split = 0.01, algorithm = algorithm)
     
     ef_patient, ef_doctor = estimates[1][0], estimates[1][1]
     A[0], B[0] = ef_patient.ravel(), ef_doctor.ravel()
@@ -41,7 +41,7 @@ def animation_embedding_1D(graph_object, nb_epochs=100, who = 'patient' , interv
     jitter_d = np.random.normal(0, 0.05, size=ef_doctor.shape[0])
     
     for i in range(1, nb_epochs):
-        estimates = get_estimations(graph_object.df, initial_weights=estimates[1], nb_epochs=1, valid_split=0.01)
+        estimates = get_estimations(graph_object.df, initial_weights=estimates[1], nb_epochs=1, valid_split=0.01, algorithm = algorithm)
         ef_patient, ef_doctor = estimates[1][0], estimates[1][1]
         A[i], B[i] = ef_patient.ravel(), ef_doctor.ravel()
         
@@ -92,13 +92,13 @@ def animation_embedding_2D(graph_object, nb_epochs=100, who = 'patient' , interv
     B = np.zeros((nb_epochs, graph_object.n_doctors, 2))  
 
     # Initialization
-    estimates = get_estimations(graph_object.df, initial_weights=None, nb_epochs=1,  dim_embedding=2)
+    estimates = get_estimations(graph_object.df, initial_weights=None, nb_epochs=1,  dim_embedding=2, algorithm = algorithm)
     
     ef_patient, ef_doctor = estimates[1][0], estimates[1][1]
     A[0], B[0] = ef_patient, ef_doctor
     
     for i in range(1, nb_epochs):
-        estimates = get_estimations(graph_object.df, initial_weights=estimates[1], nb_epochs=1, dim_embedding=2)
+        estimates = get_estimations(graph_object.df, initial_weights=estimates[1], nb_epochs=1, dim_embedding=2, algorithm = algorithm)
         ef_patient, ef_doctor = estimates[1][0], estimates[1][1]
         A[i], B[i] = ef_patient, ef_doctor
         
@@ -136,7 +136,7 @@ def animation_embedding_2D(graph_object, nb_epochs=100, who = 'patient' , interv
 ####################################  Animation XD avec réduction de dimension  #################################################
 #################################################################################################################################
 @decorateur.compute_time
-def animation_embedding_XD(graph_object, RD_method = "PCA",  nb_epochs=100, who = 'patient' , interval=200, dimension=5):
+def animation_embedding_XD(graph_object, RD_method = "PCA",  nb_epochs=100, who = 'patient' , interval=200, dimension=5, algorithm = "MF"):
 
 
     if RD_method == "PCA":
@@ -157,7 +157,7 @@ def animation_embedding_XD(graph_object, RD_method = "PCA",  nb_epochs=100, who 
     B = np.zeros((nb_epochs, graph_object.n_doctors, 2))  
 
     # Initialization
-    estimates = get_estimations(graph_object.df, initial_weights=None, nb_epochs=1,  dim_embedding=dimension)
+    estimates = get_estimations(graph_object.df, initial_weights=None, nb_epochs=1,  dim_embedding=dimension, algorithm = algorithm)
     ef_patient, ef_doctor = estimates[1][0], estimates[1][1]
     ef_patient_2D, ef_doctor_2D = RD_function.fit_transform(ef_patient), RD_function.fit_transform(ef_doctor)
 
@@ -165,7 +165,7 @@ def animation_embedding_XD(graph_object, RD_method = "PCA",  nb_epochs=100, who 
     A[0], B[0] = ef_patient_2D, ef_doctor_2D
     
     for i in range(1, nb_epochs):
-        estimates = get_estimations(graph_object.df, initial_weights=estimates[1], nb_epochs=1, dim_embedding=dimension)
+        estimates = get_estimations(graph_object.df, initial_weights=estimates[1], nb_epochs=1, dim_embedding=dimension, algorithm = algorithm)
         ef_patient, ef_doctor = estimates[1][0], estimates[1][1]
         ef_patient_2D, ef_doctor_2D = RD_function.fit_transform(ef_patient), RD_function.fit_transform(ef_doctor)
         A[i], B[i] = ef_patient_2D, ef_doctor_2D

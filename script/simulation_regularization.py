@@ -10,11 +10,11 @@ import random
 # module maison
 import script.decorateur as decorateur
 import script.graph_formation as graph_formation
-import script.MF_HNS as MF_HNS
+import script.MF_NRS as MF_NRS
 import script.density_ami_rmse_simulation as density_ami_rmse_simulation
 
 GraphFormation = graph_formation.GraphFormation
-get_estimations = MF_HNS.get_estimations
+get_estimations = MF_NRS.get_estimations
 
 @decorateur.log_execution_time('execution_details.txt')
 def plot_rmse_lambda( regu_lambdas = np.array([10**(-i) for i in range(5,11)]), nb_epochs=200, regularization="l2", save=True ):
