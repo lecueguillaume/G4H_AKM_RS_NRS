@@ -32,83 +32,90 @@ import random
 import tensorflow as tf
 
 class GraphFormation:
-
     """
-    A class used to represent the formation of a graph between patients and doctors.
+    Une classe utilisée pour représenter la formation d'un graphe entre patients et médecins.
 
-    Attributes
-    ----------
+    Attributs
+    ---------
     n_patients : int
-        The number of patients in the graph
+        Le nombre de patients dans le graphe
     n_doctors : int
-        The number of doctors in the graph
+        Le nombre de médecins dans le graphe
     max_number_connections : int
-        The maximum number of connections a patient can have with doctors
+        Le nombre maximal de connexions qu'un patient peut avoir avec des médecins
     beta_X_p_graph : float
-        The weight of the patient continious variable in the graph formation
+        Le poids de la variable continue du patient dans la formation du graphe
     beta_X_d_graph : float
-        The weight of the doctor continious variable in the graph formation
+        Le poids de la variable continue du médecin dans la formation du graphe
     beta_D_p_graph : float
-        The weight of the patient binary variable in the graph formation
+        Le poids de la variable binaire du patient dans la formation du graphe
     beta_D_d_graph : float
-        The weight of the doctor binary variable in the graph formation
+        Le poids de la variable binaire du médecin dans la formation du graphe
     beta_distance_graph : float
-        The weight of distance in the graph formation
+        Le poids de la distance dans la formation du graphe
     alpha_law_weights : np.ndarray
-        The weights of the alpha law used in the graph
+        Les poids de la loi alpha utilisée dans le graphe
     alpha_law_means : np.ndarray
-        The means of the alpha law used in the graph
+        Les moyennes de la loi alpha utilisée dans le graphe
     alpha_law_stds : np.ndarray
-        The standard deviations of the alpha law used in the graph
+        Les écarts-types de la loi alpha utilisée dans le graphe
     psi_law_weights : np.ndarray
-        The weights of the psi law used in the graph
+        Les poids de la loi psi utilisée dans le graphe
     psi_law_means : np.ndarray
-        The means of the psi law used in the graph
+        Les moyennes de la loi psi utilisée dans le graphe
     psi_law_stds : np.ndarray
-        The standard deviations of the psi law used in the graph
+        Les écarts-types de la loi psi utilisée dans le graphe
     seed : int
-        The seed used for random number generation
+        La graine utilisée pour la génération de nombres aléatoires
     nb_latent_factors : int
-        The number of latent factors used in the graph formation
+        Le nombre de facteurs latents utilisés dans la formation du graphe
     no_seed_for_link : bool
-        Whether to use a seed for link generation or not
+        Indique s'il faut utiliser une graine pour la génération de liens ou non
     dilatation_p : int
-        The dilatation factor for patients
+        Le facteur de dilatation pour les patients
     dilatation_d : int
-        The dilatation factor for doctors
+        Le facteur de dilatation pour les médecins
     std_multiplier_p : int
-        The standard deviation multiplier for patients
+        Le multiplicateur d'écart-type pour les patients
     std_multiplier_d : int
-        The standard deviation multiplier for doctors
-    dataframe : pd.DataFrame
-        The resulting dataframe after graph formation
+        Le multiplicateur d'écart-type pour les médecins
+    gaussian_sphere : bool
+        Indique si les coordonnées doivent être générées sur une sphère gaussienne
+    radius : float
+        Le rayon de la sphère gaussienne si gaussian_sphere est True
+    df : pd.DataFrame
+        Le dataframe résultant après la formation du graphe
     alpha_graph : list
-        The alpha graph after graph formation
+        Le graphe alpha après la formation du graphe
     psi_graph : list
-        The psi graph after graph formation
+        Le graphe psi après la formation du graphe
     alpha_class : list
-        The alpha class after graph formation
+        La classe alpha après la formation du graphe
     psi_class : list
-        The psi class after graph formation
+        La classe psi après la formation du graphe
     coor_patients : list
-        The coordinates of patients
+        Les coordonnées des patients
     coor_doctors : list
-        The coordinates of doctors
+        Les coordonnées des médecins
     D : np.ndarray
-        The distance matrix between patients and doctors
+        La matrice de distance entre patients et médecins
     sim_patient_X_normed : np.ndarray
-        The normalized variable X of patients
+        La variable X normalisée des patients
     sim_doctor_X_normed : np.ndarray
-        The normalized variable X of doctors
+        La variable X normalisée des médecins
     sim_patient_D : np.ndarray
-        The binary variable simulated for patients
+        La variable binaire simulée pour les patients
     sim_doctor_D : np.ndarray
-        The binary variable simulated for doctors
+        La variable binaire simulée pour les médecins
+    density : float
+        La densité du graphe généré
+    P : np.ndarray
+        La matrice de probabilité des liens entre patients et médecins
+    distance_cluster_p : np.ndarray
+        Les distances entre les clusters de patients
+    distance_cluster_d : np.ndarray
+        Les distances entre les clusters de médecins
 
-    Methods
-    -------
-    do_the_graph()
-        Generates the graph based on the given parameters and attributes.
     """
         
     def __init__(self,
@@ -175,6 +182,8 @@ class GraphFormation:
         self.sim_doctor_D = None 
         self.density = None
         self.P = None
+        self.distance_cluster_p = None
+        self.distance_cluster_d = None
 
     def do_the_graph(self, show_time_execution=False): 
         
@@ -248,11 +257,51 @@ class GraphFormation:
                 ef_vector = np.random.multivariate_normal(psi_law_means[chosen_class], psi_law_stds[chosen_class], size=1)
                 psi_graph[j, :] = ef_vector
 
+            # Matrice de distance entre les clusters
+
+            # Initialise
+            matrix_distance_cluster_p = np.zeros((nb_class_alpha, nb_class_alpha))
+            matrix_distance_cluster_d = np.zeros((nb_class_psi, nb_class_psi))
+            
+            for i in range(nb_class_alpha):
+                for j in range(nb_class_alpha):
+                    # Calcule la distance euclidienne entre les vecteurs i et j de centre_cluster_p
+                    matrix_distance_cluster_p[i, j] = np.linalg.norm(alpha_law_means[i] - alpha_law_means[j])
+
+            for i in range(nb_class_psi):
+                for j in range(nb_class_psi):
+                    # Calcule la distance euclidienne entre les vecteurs i et j de centre_cluster_d
+                    matrix_distance_cluster_d[i, j] = np.linalg.norm(psi_law_means[i] - psi_law_means[j])
+
+            self.distance_cluster_p = matrix_distance_cluster_p
+            self.distance_cluster_d = matrix_distance_cluster_d
+
         else:
+
+            
+            # Matrice de distance entre les clusters
+
+            # Initialise
             centre_cluster_p = np.random.randn(nb_class_alpha, self.nb_latent_factors)
             centre_cluster_d =  np.random.randn(nb_class_psi, self.nb_latent_factors)
+
+            matrix_distance_cluster_p = np.zeros((nb_class_alpha, nb_class_alpha))
+            matrix_distance_cluster_d = np.zeros((nb_class_psi, nb_class_psi))
             
-            # Generate fixed effects with the gaussine sphere method
+            for i in range(nb_class_alpha):
+                for j in range(nb_class_alpha):
+                    # Calcule la distance euclidienne entre les vecteurs i et j de centre_cluster_p
+                    matrix_distance_cluster_p[i, j] = np.linalg.norm(centre_cluster_p[i] - centre_cluster_p[j])
+
+            for i in range(nb_class_psi):
+                for j in range(nb_class_psi):
+                    # Calcule la distance euclidienne entre les vecteurs i et j de centre_cluster_d
+                    matrix_distance_cluster_d[i, j] = np.linalg.norm(centre_cluster_d[i] - centre_cluster_d[j])
+
+            self.distance_cluster_p = matrix_distance_cluster_p
+            self.distance_cluster_d = matrix_distance_cluster_d
+            
+            # Generate fixed effects with the gaussian sphere method
             for i in range(self.n_patients):
                 chosen_class = np.random.choice(np.arange(nb_class_alpha), p=self.alpha_law_weights)
                 alpha_class.append(chosen_class)

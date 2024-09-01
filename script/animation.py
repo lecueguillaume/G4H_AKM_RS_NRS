@@ -1,3 +1,5 @@
+#### SCRIPT POUR LES ANIMATIONS DE LA FORMATION DE L'EMBEDDING #####
+
 # bibliothéques fondamentales
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -6,14 +8,17 @@ import time
 import random
 import matplotlib.animation as animation
 
+from tqdm import tqdm
+
+# Méthode de réduction de dimension
+from sklearn.manifold import Isomap
+from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
+
 # module maison
 import script.decorateur as decorateur
 import script.graph_formation as graph_formation
 import script.MF_NRS as MF_NRS
-
-from sklearn.manifold import Isomap
-from sklearn.manifold import TSNE
-from sklearn.decomposition import PCA
 
 GraphFormation = graph_formation.GraphFormation
 get_estimations = MF_NRS.get_estimations
@@ -23,11 +28,24 @@ get_estimations = MF_NRS.get_estimations
 #################################################################################################################################
 
 @decorateur.compute_time
-def animation_embedding_1D(graph_object, nb_epochs=100, who = 'patient' , interval=200, algorithm = "MF"):
+def animation_embedding_1D(graph_object, nb_epochs=100, who = 'patient' , interval=200, algorithm = "MF", name_file= 'animation_embedding_', xlim = [-7,7] ):
+    """
+    Crée une animation 1D de l'évolution des embedding factors (EF) pour les patients ou les docteurs.
+
+    Args:
+        graph_object: Objet contenant les données du graphe.
+        nb_epochs (int): Nombre d'époques pour l'animation. Par défaut 100.
+        who (str): 'patient' ou 'doctor' pour choisir le groupe à animer. Par défaut 'patient'.
+        interval (int): Intervalle entre les frames de l'animation en millisecondes. Par défaut 200.
+        algorithm (str): Algorithme à utiliser pour les estimations. Par défaut "MF".
+
+    Returns:
+        None. Sauvegarde l'animation en format GIF.
+    """
+    
     # Create figure and axis
     fig, ax = plt.subplots(1,1,figsize=(12, 12))
 
-    
     # Initialize storage arrays
     A = np.zeros((nb_epochs, graph_object.n_patients))  
     B = np.zeros((nb_epochs, graph_object.n_doctors))  
@@ -40,7 +58,7 @@ def animation_embedding_1D(graph_object, nb_epochs=100, who = 'patient' , interv
     jitter_p = np.random.normal(0, 0.05, size=ef_patient.shape[0])
     jitter_d = np.random.normal(0, 0.05, size=ef_doctor.shape[0])
     
-    for i in range(1, nb_epochs):
+    for i in tqdm(range(1, nb_epochs)):
         estimates = get_estimations(graph_object.df, initial_weights=estimates[1], nb_epochs=1, valid_split=0.01, algorithm = algorithm)
         ef_patient, ef_doctor = estimates[1][0], estimates[1][1]
         A[i], B[i] = ef_patient.ravel(), ef_doctor.ravel()
@@ -50,18 +68,20 @@ def animation_embedding_1D(graph_object, nb_epochs=100, who = 'patient' , interv
         jitter = jitter_p
         title = "Evolution des EF des patients"
         hue_values = np.array(graph_object.alpha_class)
-    else:
+    elif who == "doctor":
         matrix = B
         jitter = jitter_d
         title = "Evolution des EF des doctors"
         hue_values = np.array(graph_object.psi_class)
+    else:
+        raise ValueError('le paramètre "who" prend comme valeur seulement "patient" ou "doctor"')
 
     # Initial scatter plot (empty, to be updated in animation)
     scat = ax.scatter([], [], c=[], cmap='viridis', norm=plt.Normalize(hue_values.min(), hue_values.max()))
         
     # Create initial scatter plot
     scat = ax.scatter(matrix[0], jitter)
-    ax.set(xlim=[-7,7], ylim=[-0.75, 0.75], xlabel='EF value', ylabel='jitter')
+    ax.set(xlim=xlim, ylim=[-0.75, 0.75], xlabel='EF value', ylabel='jitter')
     ax.set_title(title)
 
     def update(frame):   
@@ -73,7 +93,7 @@ def animation_embedding_1D(graph_object, nb_epochs=100, who = 'patient' , interv
     ani = animation.FuncAnimation(fig, update, frames=nb_epochs, interval=interval, blit=True)
 
     # Save the animation as a GIF
-    ani.save('animation_embedding_' + who +'.gif', writer='pillow')
+    ani.save(name_file + who +'.gif', writer='pillow')
     print("Save done")
 
 
@@ -82,8 +102,19 @@ def animation_embedding_1D(graph_object, nb_epochs=100, who = 'patient' , interv
 #################################################################################################################################
         
 @decorateur.compute_time       
-def animation_embedding_2D(graph_object, nb_epochs=100, who = 'patient' , interval=200):
-    
+def animation_embedding_2D(graph_object, nb_epochs=100, who = 'patient' , interval=200, algorithm = "MF", name_file = 'animation_embedding_', xlim = [-7,7] , ylim= [-7,7]):
+    """
+    Crée une animation 2D de l'évolution des embedding factors (EF) pour les patients ou les docteurs.
+
+    Args:
+        graph_object: Objet contenant les données du graphe.
+        nb_epochs (int): Nombre d'époques pour l'animation. Par défaut 100.
+        who (str): 'patient' ou 'doctor' pour choisir le groupe à animer. Par défaut 'patient'.
+        interval (int): Intervalle entre les frames de l'animation en millisecondes. Par défaut 200.
+
+    Returns:
+        None. Sauvegarde l'animation en format GIF.
+    """
     # Create figure and axis
     fig, ax = plt.subplots(1,1,figsize=(12, 12))
 
@@ -97,7 +128,7 @@ def animation_embedding_2D(graph_object, nb_epochs=100, who = 'patient' , interv
     ef_patient, ef_doctor = estimates[1][0], estimates[1][1]
     A[0], B[0] = ef_patient, ef_doctor
     
-    for i in range(1, nb_epochs):
+    for i in tqdm(range(1, nb_epochs)):
         estimates = get_estimations(graph_object.df, initial_weights=estimates[1], nb_epochs=1, dim_embedding=2, algorithm = algorithm)
         ef_patient, ef_doctor = estimates[1][0], estimates[1][1]
         A[i], B[i] = ef_patient, ef_doctor
@@ -106,17 +137,19 @@ def animation_embedding_2D(graph_object, nb_epochs=100, who = 'patient' , interv
         matrix = A
         title = "Evolution des EF des patients"
         hue_values = np.array(graph_object.alpha_class)
-    else:
+    elif who == "doctor":
         matrix = B
         title = "Evolution des EF des doctors"
         hue_values = np.array(graph_object.psi_class)
+    else:
+        raise ValueError('le paramètre "who" prend comme valeur seulement "patient" ou "doctor"')
 
     # Initial scatter plot (empty, to be updated in animation)
     scat = ax.scatter([], [], c=[], cmap='viridis', norm=plt.Normalize(hue_values.min(), hue_values.max()))
         
     # Create initial scatter plot
     scat = ax.scatter(matrix[0][:,0], matrix[0][:,1] )
-    ax.set(xlim=[-7,7], ylim=[-7, 7], xlabel=' x axis EF value', ylabel='y axis EF value')
+    ax.set(xlim = xlim, ylim = ylim, xlabel=' x axis EF value', ylabel='y axis EF value')
     ax.set_title(title)
 
     def update(frame):   
@@ -128,7 +161,7 @@ def animation_embedding_2D(graph_object, nb_epochs=100, who = 'patient' , interv
     ani = animation.FuncAnimation(fig, update, frames=nb_epochs, interval=interval, blit=True)
 
     # Save the animation as a GIF
-    ani.save('animation_embedding_2D_' + who +'.gif', writer='pillow')
+    ani.save(name_file + who +'.gif', writer='pillow')
     print("Save done")
 
 
@@ -137,6 +170,22 @@ def animation_embedding_2D(graph_object, nb_epochs=100, who = 'patient' , interv
 #################################################################################################################################
 @decorateur.compute_time
 def animation_embedding_XD(graph_object, RD_method = "PCA",  nb_epochs=100, who = 'patient' , interval=200, dimension=5, algorithm = "MF"):
+    """
+    Crée une animation 2D de l'évolution des embedding factors (EF) pour les patients ou les docteurs,
+    en utilisant une méthode de réduction de dimension pour visualiser des embeddings de dimension supérieure.
+
+    Args:
+        graph_object: Objet contenant les données du graphe.
+        RD_method (str): Méthode de réduction de dimension à utiliser ('PCA', 'T-SNE', ou 'Isomap'). Par défaut 'PCA'.
+        nb_epochs (int): Nombre d'époques pour l'animation. Par défaut 100.
+        who (str): 'patient' ou 'doctor' pour choisir le groupe à animer. Par défaut 'patient'.
+        interval (int): Intervalle entre les frames de l'animation en millisecondes. Par défaut 200.
+        dimension (int): Dimension des embeddings avant réduction. Par défaut 5.
+        algorithm (str): Algorithme à utiliser pour les estimations. Par défaut "MF".
+
+    Returns:
+        None. Sauvegarde l'animation en format GIF.
+    """
 
 
     if RD_method == "PCA":
@@ -164,7 +213,7 @@ def animation_embedding_XD(graph_object, RD_method = "PCA",  nb_epochs=100, who 
     
     A[0], B[0] = ef_patient_2D, ef_doctor_2D
     
-    for i in range(1, nb_epochs):
+    for i in tqdm(range(1, nb_epochs)):
         estimates = get_estimations(graph_object.df, initial_weights=estimates[1], nb_epochs=1, dim_embedding=dimension, algorithm = algorithm)
         ef_patient, ef_doctor = estimates[1][0], estimates[1][1]
         ef_patient_2D, ef_doctor_2D = RD_function.fit_transform(ef_patient), RD_function.fit_transform(ef_doctor)
@@ -174,10 +223,12 @@ def animation_embedding_XD(graph_object, RD_method = "PCA",  nb_epochs=100, who 
         matrix = A
         title = "Evolution des EF des patients (dimension reduced by " + RD_method + ")"
         hue_values = np.array(graph_object.alpha_class)
-    else:
+    elif who == "doctor":
         matrix = B
         title = "Evolution des EF des doctors (dimension reduced by " + RD_method + ")"
         hue_values = np.array(graph_object.psi_class)
+    else:
+        raise ValueError('le paramètre "who" prend comme valeur seulement "patient" ou "doctor"')
 
     # Initial scatter plot (empty, to be updated in animation)
     scat = ax.scatter([], [], c=[], cmap='viridis', norm=plt.Normalize(hue_values.min(), hue_values.max()))

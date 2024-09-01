@@ -1,4 +1,4 @@
-### SCRIPT pour l'entrainement des modèles ###
+####### SCRIPT pour l'entrainement des modèles ######
 
 import numpy as np
 import pandas as pd
@@ -30,6 +30,7 @@ from keras import regularizers
 from sklearn.metrics import precision_score, recall_score, f1_score, mean_squared_error
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay # Confusion Matrix
 
+# Modules maison
 import script.decorateur as decorateur
 import script.graph_formation as graph_formation
 
@@ -61,11 +62,7 @@ class LossHistory(Callback):
     def on_epoch_end(self, epoch, logs=None):
         self.losses.append(logs.get('loss'))
 
-class NonNegative(constraints.Constraint):
-    def __call__(self, w):
-        return w * tf.cast(tf.greater_equal(w, 0.), dtype=w.dtype)
-
-# Définir une contrainte personnalisée pour normaliser les vecteurs d'embedding sur une sphère
+# contrainte personnalisée pour normaliser les vecteurs d'embedding sur une sphère
 class SphereConstraint(constraints.Constraint):
     def __init__(self, radius):
         self.radius = radius
@@ -75,18 +72,41 @@ class SphereConstraint(constraints.Constraint):
         return w / (norms / self.radius)
 
 def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, target_loss=None, show_print=0, seed=12, l_lambda=0, show_time_execution = False, constraint = None, valid_split=0., cosine_sim = False, radius_constraint=4, algorithm = "MF"):
-    """Etant donné un dataframe, get_estimations renvoie l'estimation des effets fixes et des Bêtas en utilisant TensorFlow.keras
+    """
+    Estime les effets fixes et les Bêtas en utilisant TensorFlow.keras à partir d'un dataframe donné.
 
     Args:
-        df (_type_): le dataframe pour lequel on souhaite obtenir l'estimation
-        nb_epochs (int, optional): Le nombre d'itérations pour notre descente de gradient. Defaults to 50.
-        initial_weights (_type_, optional): Si on a déjà lancé un entraînement et qu'on souhaite le poursuivre, on peut rentrer l'estimation obtenue auparavant
-        (voir plus bas pour un exemple). Defaults to None.
-        target_loss (_type_, optional): Si une valeur est indiquée, la descente de gradient ne s'arrête pas tant que la loss n'est pas inférieure
-        à cette valeur. Defaults to None.
+        df (pd.DataFrame): Le dataframe pour lequel on souhaite obtenir l'estimation.
+        nb_epochs (int, optional): Le nombre d'itérations pour la descente de gradient. Par défaut 50.
+        dim_embedding (int, optional): La dimension de l'espace d'embedding. Par défaut 1.
+        initial_weights (list, optional): Poids initiaux si on souhaite poursuivre un entraînement précédent. Par défaut None.
+        target_loss (float, optional): Si spécifié, l'entraînement continue jusqu'à ce que la perte soit inférieure à cette valeur. Par défaut None.
+        show_print (int, optional): Niveau de verbosité de l'entraînement. Par défaut 0.
+        seed (int, optional): Graine pour la reproductibilité. Par défaut 12.
+        l_lambda (float, optional): Paramètre de régularisation L2. Par défaut 0.
+        show_time_execution (bool, optional): Si True, affiche le temps d'exécution. Par défaut False.
+        constraint (str, optional): Type de contrainte sur les embeddings ('sphere' ou None). Par défaut None.
+        valid_split (float, optional): Proportion des données pour la validation. Par défaut 0.
+        cosine_sim (bool, optional): Si True, utilise la similarité cosinus au lieu du produit scalaire. Par défaut False.
+        radius_constraint (float, optional): Rayon de la contrainte sphérique si applicable. Par défaut 4.
+        algorithm (str, optional): Algorithme à utiliser ("MF" pour Matrix Factorization ou "NRS" pour Neural Recommender System). Par défaut "MF".
 
     Returns:
-        _type_: l'ensemble des estimations (voir plus bas pour un exemple)
+        tuple: Un tuple contenant :
+            - list: Valeurs de perte à chaque époque si target_loss est None, sinon le nombre d'époques.
+            - list: Poids du modèle entraîné.
+            - dict: Mapping des IDs des patients vers leurs indices.
+            - dict: Mapping des IDs des médecins vers leurs indices.
+            - tf.keras.Model: Le modèle entraîné.
+            - tf.keras.callbacks.History: L'historique de l'entraînement si target_loss est None.
+
+    Raises:
+        ValueError: Si l'algorithme spécifié n'est ni "MF" ni "NRS".
+
+    Note:
+        Cette fonction utilise TensorFlow pour construire et entraîner un modèle de recommandation.
+        Elle peut utiliser soit la factorisation matricielle (MF) soit un système de recommandation neuronal (NRS).
+        La fonction normalise également les variables X_p et X_d avant l'entraînement.
     """
     start_time = time.time()
     # fixation des seeds pour être reproductible
@@ -251,11 +271,11 @@ def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, tar
 
 
 #########################################################################################################################################
-############################################ FONCTIONS POUR PLOT ########################################################################
+################################ FONCTIONS POUR EVALUER LA QUALITE DE PREDICTION #########################################################################################################################################
 #########################################################################################################################################
 
 @decorateur.compute_time
-def prediction_score(graph_object, nb_epochs = 100, train_test_split = 0.8, seed = 12, l_lambda= 0, initial_weights=None, target_loss=None, show_print=0, dim_embedding=1, valid_split = 0.05, algorithm = "MF"):
+def prediction_score(graph_object, nb_epochs = 100, train_test_split = 0.8, seed = 12, l_lambda= 0, initial_weights=None, target_loss=None, show_print=0, dim_embedding=1, valid_split = 0.5, algorithm = "MF"):
     """
     Calculer et évaluer le score de prédiction d'un modèle sur les données d'un objet graph_object.
 
@@ -378,6 +398,7 @@ def prediction_score(graph_object, nb_epochs = 100, train_test_split = 0.8, seed
         print(f"ESTIMATION BETA: X p {beta_X_p}; X d {beta_X_d}; D_p {beta_D_p}; D_d {beta_D_d}; distance {beta_distance}")
         print(f"ERROR ESTIMATION BETA: X p {beta_X_p-graph_object.beta_X_p_graph}; X d {beta_X_d-graph_object.beta_X_d_graph}; D_p {beta_D_p-graph_object.beta_D_p_graph}; D_d {beta_D_d-    graph_object.beta_D_d_graph}; distance {beta_distance - graph_object.beta_distance_graph}")
     plt.show()
+    return min_val_loss_epoch
 
 @decorateur.compute_time
 def loss_vs_density(sim_beta_distance_array = [-20,-15, -12, -10,-7,-5, -3, -2,], nb_epochs = 120,  valid_split=0.1,  alpha_law_means=[0,1,2], psi_law_means= [0,1,2], gaussian_sphere=False, std_multiplier_p=0, std_multiplier_d=0, nb_latent_factors=1, radius=4, dilatation_p=2, dilatation_d=2, seed = 12):
