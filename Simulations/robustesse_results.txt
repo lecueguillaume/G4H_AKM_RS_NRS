@@ -1,0 +1,31 @@
+----------------------------------------------------------------------------------------------------
+n = 100; train_ratio = 0.8; nb_epochs = 30; dim_embedding = 1; algo = NRS
+ Moyenne de la similarité des matrices de distances des ef patients : 0.7660676252180734
+Moyenne de la similarité des matrices de distances des ef doctors : 0.9636374699208913
+----------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+n = 100; train_ratio = 0.8; nb_epochs = 140; dim_embedding = 1; algo = MF
+ Moyenne de la similarité des matrices de distances des ef patients : 0.8507634233833251
+Moyenne de la similarité des matrices de distances des ef doctors : 0.9874244028076556
+----------------------------------------------------------------------------------------------------
+
+----------------------------------------------------------------------------------------------------
+n = 100; train_ratio = 0.8; nb_epochs = 30; dim_embedding = 2; algo = NRS
+ Moyenne de la similarité des matrices de distances des ef patients : 0.9244277833955659
+Moyenne de la similarité des matrices de distances des ef doctors : 0.9705382472618798
+----------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+n = 100; train_ratio = 0.8; nb_epochs = 50; dim_embedding = 2; algo = MF
+ Moyenne de la similarité des matrices de distances des ef patients : 0.8691156349015157
+Moyenne de la similarité des matrices de distances des ef doctors : 0.8766226398822622
+----------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+n = 100; train_ratio = 0.8; nb_epochs = 30; dim_embedding = 5; algo = NRS
+ Moyenne de la similarité des matrices de distances des ef patients : 0.8550644150091846
+Moyenne de la similarité des matrices de distances des ef doctors : 0.9335641692232677
+----------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+n = 100; train_ratio = 0.8; nb_epochs = 60; dim_embedding = 5; algo = MF
+ Moyenne de la similarité des matrices de distances des ef patients : 0.9464679780240316
+Moyenne de la similarité des matrices de distances des ef doctors : 0.9740603594744254
+----------------------------------------------------------------------------------------------------

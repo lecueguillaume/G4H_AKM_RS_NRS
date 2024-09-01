@@ -7,3 +7,25 @@ Execution time: 22022 seconds.
 Function simulation_ami_dilatation called with arguments () and keyword arguments {'n': 10, 'patient_dilatation': False, 'doctor_dilatation': True, 'sim_dilatation_array': [0.2, 0.5, 1, 2, 3, 4, 5, 6], 'sim_beta_distance_array': array([-25., -25., -25., -25., -25., -25., -25., -25.]), 'nb_epochs': 200, 'n_patients': 1000, 'n_doctors': 50}.
 Execution time: 25034 seconds.
 
+Function simulation_ami_lambda called with arguments () and keyword arguments {'regu_lambdas': array([1.e+00, 1.e-01, 1.e-02, 1.e-03, 1.e-04, 1.e-05, 1.e-06]), 'nb_epochs': 30, 'save': True, 'algorithm': 'NRS'}.
+Execution time: 193 seconds.
+
+Function simulation_ami_lambda called with arguments () and keyword arguments {'regu_lambdas': array([1.e+00, 1.e-01, 1.e-02, 1.e-03, 1.e-04, 1.e-05, 1.e-06]), 'nb_epochs': 120, 'save': True, 'algorithm': 'MF'}.
+Execution time: 645 seconds.
+
+Function make_matrix_heatmap called with arguments () and keyword arguments {'dim_gen_array': array([2, 3]), 'dim_estim_array': array([1, 2]), 'seed': 12, 'nb_epochs_max': 3, 'name_file': 'matrix_heatmap_test'}.
+Execution time: 35 seconds.
+
+Function make_matrix_heatmap called with arguments () and keyword arguments {'dim_gen_array': array([1, 2, 3, 4, 5]), 'dim_estim_array': array([ 1,  2,  3,  4,  5,  8, 10]), 'nb_epochs_max': 100, 'name_file': 'matrix_heatmap_NRS_seed12'}.
+Execution time: 3778 seconds.
+
+Function make_matrix_heatmap called with arguments () and keyword arguments {'dim_gen_array': array([1, 2, 3, 4, 5]), 'dim_estim_array': array([ 1,  2,  3,  4,  5,  8, 10]), 'nb_epochs_max': 100, 'seed': 13, 'name_file': 'matrix_heatmap_NRS_seed13'}.
+Execution time: 3687 seconds.
+
+Function make_matrix_heatmap called with arguments () and keyword arguments {'dim_gen_array': array([1, 2, 3, 4, 5]), 'dim_estim_array': array([ 1,  2,  3,  4,  5,  8, 10]), 'nb_epochs_max': 100, 'seed': 14, 'name_file': 'matrix_heatmap_NRS_seed14'}.
+Execution time: 3861 seconds.
+
+Function make_matrix_heatmap called with arguments () and keyword arguments {'dim_gen_array': array([1, 2, 3, 4, 5]), 'dim_estim_array': array([ 1,  2,  3,  4,  5,  8, 10]), 'algorithm': 'MF', 'nb_epochs_max': 120, 'name_file': 'matrix_heatmap_MF_seed12'}.
+Execution time: 11729 seconds.
+
+
