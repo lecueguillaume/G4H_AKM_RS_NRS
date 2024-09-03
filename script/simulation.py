@@ -21,9 +21,38 @@ from sklearn.cluster import KMeans
 from sklearn import metrics
 from sklearn.metrics.pairwise import cosine_similarity
 
-
 @decorateur.log_execution_time('execution_details.txt')
 def make_matrix_heatmap(dim_gen_array = np.array([1,2,3,4,5]), dim_estim_array = np.array([1, 2, 3, 4, 5, 8, 10]), seed = 12, algorithm = "NRS", nb_epochs_max = 100, name_file = "matrix_heatmap"):
+    """
+    Génère une carte de chaleur (heatmap) montrant la similarité de clustering entre les dimensions générées 
+    et estimées à l'aide de l'algorithme K-means, en utilisant des graphes générés selon différentes dimensions latentes.
+
+    Paramètres:
+    ----------
+    dim_gen_array : np.array, default=np.array([1, 2, 3, 4, 5])
+        Tableau des dimensions latentes utilisées pour générer les graphes.
+    
+    dim_estim_array : np.array, default=np.array([1, 2, 3, 4, 5, 8, 10])
+        Tableau des dimensions latentes utilisées pour estimer les paramètres des graphes générés.
+    
+    seed : int, default=12
+        Graine aléatoire pour la reproductibilité des simulations et des estimations.
+    
+    algorithm : str, default="NRS"
+        Algorithme utilisé pour l'estimation des paramètres du modèle.
+    
+    nb_epochs_max : int, default=100
+        Nombre maximal d'époques pour l'algorithme d'estimation initial.
+    
+    name_file : str, default="matrix_heatmap"
+        Nom du fichier de sortie pour sauvegarder la matrice sous forme de fichier numpy (.npy).
+
+    Retour:
+    -------
+    matrix : np.ndarray
+        Matrice 3D contenant les scores de Rand ajustés pour les patients et les médecins, 
+        de dimension (2, len(dim_gen_array), len(dim_estim_array)).
+    """
 
     matrix = np.zeros((2, len(dim_gen_array), len(dim_estim_array)))
 
@@ -118,11 +147,58 @@ def make_matrix_heatmap(dim_gen_array = np.array([1,2,3,4,5]), dim_estim_array =
 
     return matrix
 
-                
-
-
 @decorateur.log_execution_time('execution_details.txt')
 def simulation_density_ami(n=10, sim_beta_distance_array = [-25, -20,-15, -12, -10,-8,-5, -3,], nb_epochs=200, n_patients=1000, n_doctors=50, n_clusters_p = 3, n_clusters_d=3  ):
+
+    """
+    Simule la formation de graphes et évalue leur densité et leurs performances en termes de RMSE (Root Mean Square Error)
+    et AMI (Adjusted Mutual Information) pour différentes distances beta. 
+
+    La fonction génère des graphes de patients et de médecins avec des distances de beta différentes, effectue des
+    estimations sur les graphes générés, et utilise K-means pour calculer l'AMI entre les clusters estimés et réels.
+
+    Décorateur:
+    -----------
+    @decorateur.log_execution_time('execution_details.txt')
+        Enregistre le temps d'exécution de la fonction dans le fichier 'execution_details.txt'.
+
+    Paramètres:
+    -----------
+    n : int, default=10
+        Nombre de simulations à exécuter. Chaque simulation utilise une graine aléatoire différente pour la reproductibilité.
+    
+    sim_beta_distance_array : list of int, default=[-25, -20, -15, -12, -10, -8, -5, -3]
+        Liste des distances beta pour la formation des graphes. Ces valeurs influencent la densité des graphes générés.
+    
+    nb_epochs : int, default=200
+        Nombre d'époques à utiliser pour l'algorithme d'estimation des paramètres du graphe.
+    
+    n_patients : int, default=1000
+        Nombre de patients dans le graphe généré.
+    
+    n_doctors : int, default=50
+        Nombre de médecins dans le graphe généré.
+    
+    n_clusters_p : int, default=3
+        Nombre de clusters à utiliser pour les patients lors du clustering K-means.
+    
+    n_clusters_d : int, default=3
+        Nombre de clusters à utiliser pour les médecins lors du clustering K-means.
+
+    Retour:
+    -------
+    matrix : np.ndarray
+        Matrice 3D de dimensions (n, len(sim_beta_distance_array), 4) contenant les résultats de chaque simulation :
+        - [j][i][0] : Densité du graphe pour la simulation j avec beta distance i.
+        - [j][i][1] : RMSE pour la simulation j avec beta distance i.
+        - [j][i][2] : AMI pour les clusters de patients dans la simulation j avec beta distance i.
+        - [j][i][3] : AMI pour les clusters de médecins dans la simulation j avec beta distance i.
+
+    Exemple:
+    --------
+    >>> matrix = simulation_density_ami()
+    >>> print(matrix.shape)  # (10, 8, 4) si les valeurs par défaut sont utilisées
+    """
     
     size = len(sim_beta_distance_array)
     matrix = np.zeros((n,size,4))
@@ -179,6 +255,66 @@ def simulation_density_ami(n=10, sim_beta_distance_array = [-25, -20,-15, -12, -
 
 @decorateur.log_execution_time('execution_details.txt')
 def simulation_ami_dilatation(n=10, patient_dilatation = True, doctor_dilatation = True, sim_dilatation_array = [0.2, 0.5, 1, 2, 3, 4, 5, 6], sim_beta_distance_array = [-5,-8, -10, -12,-15,-20, -25,-30],  nb_epochs=200, n_patients=1000, n_doctors=50 ):
+
+    """
+    Effectue des simulations de graphes avec des dilatations variables pour les patients et les médecins 
+    et évalue leurs performances en termes de densité, RMSE (Root Mean Square Error) et AMI (Adjusted Mutual Information).
+
+    La fonction génère des graphes de patients et de médecins avec différentes dilatations et distances beta, effectue 
+    des estimations sur les graphes générés, et utilise K-means pour calculer l'AMI entre les clusters estimés et réels.
+
+    Décorateur:
+    -----------
+    @decorateur.log_execution_time('execution_details.txt')
+        Enregistre le temps d'exécution de la fonction dans le fichier 'execution_details.txt'.
+
+    Paramètres:
+    -----------
+    n : int, default=10
+        Nombre de simulations à exécuter. Chaque simulation utilise une graine aléatoire différente pour la reproductibilité.
+    
+    patient_dilatation : bool, default=True
+        Si True, applique la dilatation aux patients lors de la génération du graphe.
+    
+    doctor_dilatation : bool, default=True
+        Si True, applique la dilatation aux médecins lors de la génération du graphe.
+    
+    sim_dilatation_array : list of float, default=[0.2, 0.5, 1, 2, 3, 4, 5, 6]
+        Liste des valeurs de dilatation à utiliser pour la simulation. Ces valeurs affectent la manière dont les
+        distances entre les nœuds sont dilatées.
+
+    sim_beta_distance_array : list of int, default=[-5, -8, -10, -12, -15, -20, -25, -30]
+        Liste des distances beta pour la formation des graphes. Ces valeurs influencent la densité des graphes générés.
+        La longueur de cette liste doit être la même que celle de `sim_dilatation_array`.
+    
+    nb_epochs : int, default=200
+        Nombre d'époques à utiliser pour l'algorithme d'estimation des paramètres du graphe.
+    
+    n_patients : int, default=1000
+        Nombre de patients dans le graphe généré.
+    
+    n_doctors : int, default=50
+        Nombre de médecins dans le graphe généré.
+
+    Retour:
+    -------
+    matrix : np.ndarray
+        Matrice 3D de dimensions (n, len(sim_dilatation_array), 4) contenant les résultats de chaque simulation :
+        - [j][i][0] : Densité du graphe pour la simulation j avec dilatation i.
+        - [j][i][1] : RMSE pour la simulation j avec dilatation i.
+        - [j][i][2] : AMI pour les clusters de patients dans la simulation j avec dilatation i.
+        - [j][i][3] : AMI pour les clusters de médecins dans la simulation j avec dilatation i.
+
+    Exemple:
+    --------
+    >>> results_matrix = simulation_ami_dilatation()
+    >>> print(results_matrix.shape)  # (10, 8, 4) si les valeurs par défaut sont utilisées
+
+    Remarques:
+    ----------
+    - La fonction utilise la bibliothèque `KMeans` pour effectuer un clustering sur les résultats estimés et calcule l'AMI.
+    - La fonction utilise l'assertion pour s'assurer que `sim_dilatation_array` et `sim_beta_distance_array` ont la même longueur.
+    """
 
     assert len(sim_dilatation_array) == len(sim_beta_distance_array)
     size = len(sim_beta_distance_array)
@@ -257,7 +393,36 @@ def simulation_ami_dilatation(n=10, patient_dilatation = True, doctor_dilatation
 
 @decorateur.log_execution_time('execution_details.txt')
 def simulation_rmse_lambda( regu_lambdas = np.array([10**(-i) for i in range(5,11)]), nb_epochs=200, save=True ):
+
+    """
+    Effectue des simulations pour calculer le RMSE (Root Mean Square Error) en fonction des valeurs de régularisation lambda pour les modèles
+    d'estimation des graphes. La régularisation L2 est appliquée pour chaque valeur de lambda et les RMSE des estimations de alpha et psi sont calculés.
+
+    Décorateur:
+    -----------
+    @decorateur.log_execution_time('execution_details.txt')
+        Enregistre le temps d'exécution de la fonction dans le fichier 'execution_details.txt'.
+
+    Paramètres:
+    -----------
+    regu_lambdas : np.array, default=np.array([10**(-i) for i in range(5, 11)])
+        Liste des valeurs de régularisation lambda à tester. Les valeurs par défaut vont de 10^-5 à 10^-10.
+
+    nb_epochs : int, default=200
+        Nombre d'époques pour l'algorithme d'estimation des paramètres du graphe.
     
+    save : bool, default=True
+        Si True, enregistre le graphique de la simulation sous forme d'image ('Simulation_regularization_lambda.png').
+
+    Retour:
+    -------
+    None
+        La fonction ne retourne rien mais affiche et peut sauvegarder les graphiques du RMSE en fonction des lambdas.
+
+    Exemple:
+    --------
+    >>> simulation_rmse_lambda()
+    """ 
     size = len(regu_lambdas)
     rmse_array, rmse_alpha_array, rmse_psi_array = np.zeros(size), np.zeros(size), np.zeros(size)
     
@@ -480,6 +645,29 @@ def robustesse_simul_n_models(n, train_ratio, graph_object, nb_epochs = 80, dim_
 
 
 def make_distance_ef_matrix(ef):
+
+    """
+    Calcule une matrice de distances pour les embeddings donnés (ef) en utilisant la distance absolue pour les embeddings de dimension 1
+    et la norme Euclidienne pour les embeddings de dimensions supérieures.
+
+    Paramètres:
+    -----------
+    ef : np.ndarray
+        Matrice de dimension (n_samples, n_features) contenant les embeddings à partir desquels calculer les distances.
+
+    Retour:
+    -------
+    matrix : np.ndarray
+        Matrice de distance symétrique de taille (n_samples, n_samples) où chaque élément (i, j) représente la distance entre les embeddings i et j.
+
+    Exemple:
+    --------
+    >>> ef = np.array([[1], [2], [3]])
+    >>> make_distance_ef_matrix(ef)
+    array([[0., 1., 2.],
+           [1., 0., 1.],
+           [2., 1., 0.]])
+    """
     size = ef.shape[0]
     matrix = np.zeros((size, size))
     for i in range(size):
@@ -491,6 +679,31 @@ def make_distance_ef_matrix(ef):
     return matrix
 
 def make_list_dist_ef_matrix(matrix_ef_simulation, triangle=False):
+
+    """
+    Crée une liste de matrices de distances des embeddings donnés pour chaque simulation. Chaque matrice est soit triangulaire inférieure
+    soit complète en fonction du paramètre `triangle`.
+
+    Paramètres:
+    -----------
+    matrix_ef_simulation : np.ndarray
+        Matrice de simulations de dimension (n_simulations, n_samples, n_features), contenant les embeddings pour chaque simulation.
+
+    triangle : bool, default=False
+        Si True, conserve uniquement la partie triangulaire inférieure de la matrice de distance. Si False, retourne la matrice de distance complète.
+
+    Retour:
+    -------
+    l : list of np.ndarray
+        Liste des matrices de distances pour chaque simulation.
+
+    Exemple:
+    --------
+    >>> matrix_ef_simulation = np.random.rand(3, 5, 1)
+    >>> make_list_dist_ef_matrix(matrix_ef_simulation)
+    [array([...]), array([...]), array([...])]
+    """
+    
     l = []
     for n in range(matrix_ef_simulation.shape[0]):
         ef = matrix_ef_simulation[n]
@@ -502,9 +715,34 @@ def make_list_dist_ef_matrix(matrix_ef_simulation, triangle=False):
     return l
 
 def compute_cosine_similarity(distance_matrix_list_ef, triangle=True):
+
+    """
+    Calcule la similarité cosinus entre chaque paire de matrices de distances dans une liste.
+
+    Paramètres:
+    -----------
+    distance_matrix_list_ef : list of np.ndarray
+        Liste des matrices de distances pour lesquelles calculer la similarité cosinus.
+
+    triangle : bool, default=True
+        Si True, retourne une matrice de similarité cosinus symétrique.
+
+    Retour:
+    -------
+    cosine_sim : np.ndarray
+        Matrice de similarité cosinus de dimension (n_simulations, n_simulations).
+
+    Exemple:
+    --------
+    >>> matrices = [np.random.rand(5, 5), np.random.rand(5, 5)]
+    >>> compute_cosine_similarity(matrices)
+    array([...])
+    """
+    
     size = len(distance_matrix_list_ef)
     cosine_sim = np.zeros((size,size))
     for i in range(size):
+
         for j in range(i):
             A_flat = distance_matrix_list_ef[i].flatten().reshape(1, -1)
             B_flat = distance_matrix_list_ef[j].flatten().reshape(1, -1)
@@ -515,6 +753,39 @@ def compute_cosine_similarity(distance_matrix_list_ef, triangle=True):
         return cosine_sim
 
 def robustesse_all(n, train_ratio, graph_object, nb_epochs = 80, dim_embedding = 1,  algorithm = "MF"):
+    """
+    Évalue la robustesse du modèle en calculant la similarité cosinus moyenne des matrices de distances des embeddings
+    estimés pour les patients et les médecins. Les résultats sont enregistrés dans un fichier texte.
+
+    Paramètres:
+    -----------
+    n : int
+        Nombre de simulations à exécuter.
+
+    train_ratio : float
+        Ratio d'entraînement pour la séparation des données.
+
+    graph_object : GraphFormation
+        Objet de type GraphFormation représentant la structure de graphe à utiliser.
+
+    nb_epochs : int, default=80
+        Nombre d'époques pour l'algorithme d'estimation des paramètres du graphe.
+
+    dim_embedding : int, default=1
+        Dimension des embeddings pour l'algorithme de factorisation.
+
+    algorithm : str, default="MF"
+        Algorithme d'estimation utilisé pour la simulation (ex : "MF" pour Matrix Factorization).
+
+    Retour:
+    -------
+    None
+        La fonction ne retourne rien mais imprime les résultats et les enregistre dans un fichier texte 'robustesse_results.txt'.
+
+    Exemple:
+    --------
+    >>> robustesse_all(10, 0.8, graph_object)
+    """
     matrix_ef_patient, matrix_ef_doctor = robustesse_simul_n_models(n, train_ratio, graph_object, nb_epochs = nb_epochs, dim_embedding = dim_embedding,  algorithm = algorithm)
     list_dist_matrix_patient = make_list_dist_ef_matrix(matrix_ef_patient, triangle=False)
     list_dist_matrix_doctor = make_list_dist_ef_matrix(matrix_ef_doctor, triangle=False)

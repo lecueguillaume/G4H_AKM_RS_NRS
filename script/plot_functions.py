@@ -31,13 +31,30 @@ get_estimations = MF_NRS.get_estimations
 
 
 def plot_heatmap(matrix, who = "patient", title = "Heatmap des AMI", xticklabel = np.array([1,2,3,4,5]), yticklabel = np.array([1, 2, 3, 4, 5, 8, 10]), save = False):
+    """
+    Plot a heatmap for AMI (Adjusted Mutual Information) data.
+
+    Parameters:
+    - matrix (numpy.ndarray): 3D array containing AMI data for patients and doctors.
+    - who (str): Specifies whether to plot for 'patient' or 'doctor'. Default is 'patient'.
+    - title (str): Title of the heatmap. Default is "Heatmap des AMI".
+    - xticklabel (numpy.ndarray): Labels for x-axis. Default is [1,2,3,4,5].
+    - yticklabel (numpy.ndarray): Labels for y-axis. Default is [1,2,3,4,5,8,10].
+    - save (bool): If True, saves the plot as an image file. Default is False.
+
+    Raises:
+    - ValueError: If 'who' is neither 'patient' nor 'doctor'.
+
+    Returns:
+    None. Displays the plot and optionally saves it.
+    """
 
     if who == "patient":
         i=0
     elif who == "doctor":
         i=1
     else:
-        raise ValueError("'who' prend comme ")
+        raise ValueError("'who' must be either 'patient' or 'doctor'")
     # Création de la heatmap avec des labels pour les cases
     plt.figure(figsize=(8, 6))  
     sns.heatmap(
@@ -46,14 +63,15 @@ def plot_heatmap(matrix, who = "patient", title = "Heatmap des AMI", xticklabel 
         cmap='plasma',        # Choix de la palette de couleurs
         cbar=True,             # Affiche la barre de couleurs
         yticklabels=xticklabel,    # Noms pour les colonnes
-        xticklabels=yticklabel     # Noms pour les lignes
+        xticklabels=yticklabel,     # Noms pour les lignes
+        fmt=".2f",
     )
     
     plt.ylabel('dimension de génération')
     plt.xlabel("dimension d'estimation")
 
     if save == True:
-        plt.savefig(title)
+        plt.savefig(f"{title.lower().replace(' ', '_')}.png", dpi=300, bbox_inches='tight')
         
     # Ajout du titre de la heatmap
     plt.title(title)
@@ -61,11 +79,20 @@ def plot_heatmap(matrix, who = "patient", title = "Heatmap des AMI", xticklabel 
     # Affichage de la heatmap
     plt.show()
 
-
-
-
 def plot_tab_ami_inertia_kmeans(tab, save=False, title='Inertie et AMI en fonction du K du K-means, pour les patients et les docteurs'):
-    
+    """
+    Plot inertia and AMI (Adjusted Mutual Information) scores for K-means clustering results.
+
+    Parameters:
+    - tab (pandas.DataFrame): DataFrame containing 'K', 'Inertia doctor', 'AMI doctor', 
+                              'Inertia patient', and 'AMI patient' columns.
+    - save (bool): If True, saves the plot as an image file. Default is False.
+    - title (str): Main title for the plot. 
+                   Default is 'Inertie et AMI en fonction du K du K-means, pour les patients et les docteurs'.
+
+    Returns:
+    None. Displays the plot and optionally saves it.
+    """
     # Create the figure and axes
     fig, axs = plt.subplots(1, 2, figsize=(14, 6))
     
@@ -108,14 +135,26 @@ def plot_tab_ami_inertia_kmeans(tab, save=False, title='Inertie et AMI en foncti
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     
     # Save the figure if required
-    if save == True:
-        plt.savefig(title)
+    if save:
+        plt.savefig(f"{title.lower().replace(' ', '_')}.png", dpi=300, bbox_inches='tight')
     
     # Show the plot
     plt.show()
 
-
 def plot_simulation_density_ami(matrix, rank=7, n=100, worst=1, save=True):
+    """
+    Plot simulation results for density and AMI (Adjusted Mutual Information).
+
+    Parameters:
+    - matrix (numpy.ndarray): 3D array containing simulation results.
+    - rank (int): Number of different beta distances. Default is 7.
+    - n (int): Number of simulations. Default is 100.
+    - worst (int): Rank of the worst AMI to plot. Default is 1 (worst AMI).
+    - save (bool): If True, saves the plot as an image file. Default is True.
+
+    Returns:
+    None. Displays the plot and optionally saves it.
+    """
     mean_density_array,  worst_ami_p, worst_ami_d, mean_rmse_array  = np.zeros(rank), np.zeros(rank), np.zeros(rank),  np.zeros(rank)
 
     # Crée une figure avec deux sous-graphiques (subplots)
@@ -162,20 +201,16 @@ def plot_simulation_density_ami(matrix, rank=7, n=100, worst=1, save=True):
     ax5.plot(mean_density_array, worst_ami_d, c="orange", label = "doctor")
     ax5.set_ylim(0,1)
     ax5.legend()
-
-    if save == True:
-        # Enregistrement du graphique dans un fichier
-        fig.savefig('density_am.png', dpi=300, bbox_inches='tight')
+    
+    if save:
+        plt.savefig('density_ami.png', dpi=300, bbox_inches='tight')
 
     ax1.set_title(f'AMI des patients des {n} simulations en fonction de la densité')
     ax2.set_title(f'AMI des docteurs (orange) des {n} simulations en fonction de la densité')
     ax3.set_title(f'RMSE des {n} en fonction de la densité')
     ax4.set_title(f'Moyenne des RMSE sur les {n} simulations en fonction de la densité')
-    ax5.set_title(f'{worst}eme/er plus mauvais AMI des patients (bleu) et des docteurs (orange) en fonction de la densité')
-
-    
+    ax5.set_title(f'{worst}eme/er plus mauvais AMI des patients (bleu) et des docteurs (orange) en fonction de la densité') 
     plt.show()
-
 
 def plot_simulation_dilatation_ami(matrix, dilatation_array, n=10, x_label = "coefficient de dilatation", worst=1, save = True):
 
@@ -248,10 +283,34 @@ def plot_simulation_dilatation_ami(matrix, dilatation_array, n=10, x_label = "co
 @decorateur.compute_time
 def plot_ef_RD(graph_object, ef_patient, ef_doctor, label_doctor = None, label_patient = None, RD_method = "PCA", save = True):
     
-    RD = {"PCA": PCA(n_components=2) , "TSNE" :  TSNE(n_components=2), "UMAP":umap.UMAP(n_components=2) , "Pacmap" :  pacmap.PaCMAP(n_dims=2,n_neighbors=7)}
-    ef_patient_RD, ef_doctor_RD = RD[RD_method].fit_transform(ef_patient), RD[RD_method].fit_transform(ef_doctor)
+    """
+    Visualise les embeddings fixes (EF) des patients et des docteurs après réduction de dimensionnalité.
 
+    Parameters:
+    - graph_object: Objet contenant les informations sur le graphe (doit avoir psi_class et alpha_class).
+    - ef_patient (array): Embeddings fixes des patients.
+    - ef_doctor (array): Embeddings fixes des docteurs.
+    - label_doctor (array, optional): Labels additionnels pour les docteurs.
+    - label_patient (array, optional): Labels additionnels pour les patients.
+    - RD_method (str): Méthode de réduction de dimensionnalité ('PCA', 'TSNE', 'UMAP', ou 'Pacmap'). Par défaut 'PCA'.
+    - save (bool): Si True, sauvegarde les graphiques. Par défaut True.
 
+    Returns:
+    None. Affiche et optionnellement sauvegarde les graphiques.
+    """
+    RD = {
+        "PCA": PCA(n_components=2),
+        "TSNE": TSNE(n_components=2),
+        "UMAP": umap.UMAP(n_components=2),
+        "Pacmap": pacmap.PaCMAP(n_dims=2, n_neighbors=7)
+    }
+
+    if RD_method not in RD:
+        raise ValueError(f"Méthode de réduction de dimensionnalité '{RD_method}' non reconnue.")
+
+    ef_patient_RD = RD[RD_method].fit_transform(ef_patient)
+    ef_doctor_RD = RD[RD_method].fit_transform(ef_doctor)
+    
     #Visualisation des EF docteur
     sns.set_palette("deep") 
     
@@ -274,9 +333,23 @@ def plot_ef_RD(graph_object, ef_patient, ef_doctor, label_doctor = None, label_p
     plt.show()
 
 def plot_ef_1D(graph_object, ef_patient, ef_doctor, save = False, title = "EF_doctor_patient_1D", style_d = None, style_p = None):
-    # Create a figure with two subplots side by side
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    """
+    Visualise les embeddings fixes (EF) 1D des patients et des docteurs avec un jitter vertical.
 
+    Parameters:
+    - graph_object: Objet contenant les informations sur le graphe (doit avoir psi_class et alpha_class).
+    - ef_patient (array): Embeddings fixes 1D des patients.
+    - ef_doctor (array): Embeddings fixes 1D des docteurs.
+    - save (bool): Si True, sauvegarde le graphique. Par défaut False.
+    - title (str): Titre du graphique. Par défaut "EF_doctor_patient_1D".
+    - style_d (array, optional): Style additionnel pour les points des docteurs.
+    - style_p (array, optional): Style additionnel pour les points des patients.
+
+    Returns:
+    None. Affiche et optionnellement sauvegarde le graphique.
+    """
+    # Create a figure with two subplots side by side
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))  
     
     ef_patient, ef_doctor = ef_patient.flatten(), ef_doctor.flatten()
     
@@ -302,14 +375,28 @@ def plot_ef_1D(graph_object, ef_patient, ef_doctor, save = False, title = "EF_do
     # Adjust layout for better spacing
     plt.tight_layout()
     
-    if save == True: 
-        plt.savefig(title)
+    if save:
+        plt.savefig(f"{title}.png", dpi=300, bbox_inches='tight') 
     plt.suptitle(title)
     # Show the combined figure
     plt.show()
 
 def plot_ef_2D(graph_object, ef_patient, ef_doctor, save = False, title = "EF_doctor_patient_2D", style_d = None, style_p = None):
-    
+    """
+    Visualise les embeddings fixes (EF) 2D des patients et des docteurs.
+
+    Parameters:
+    - graph_object: Objet contenant les informations sur le graphe (doit avoir psi_class et alpha_class).
+    - ef_patient (array): Embeddings fixes 2D des patients.
+    - ef_doctor (array): Embeddings fixes 2D des docteurs.
+    - save (bool): Si True, sauvegarde le graphique. Par défaut False.
+    - title (str): Titre du graphique. Par défaut "EF_doctor_patient_2D".
+    - style_d (array, optional): Style additionnel pour les points des docteurs.
+    - style_p (array, optional): Style additionnel pour les points des patients.
+
+    Returns:
+    None. Affiche et optionnellement sauvegarde le graphique.
+    """
     # Create a figure with two subplots side by side
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
     # First plot: EF docteur
@@ -332,15 +419,12 @@ def plot_ef_2D(graph_object, ef_patient, ef_doctor, save = False, title = "EF_do
     axes[1].legend(title="Classe")
     
     # Adjust layout for better spacing
-    plt.tight_layout()
-    
-    if save == True: 
-        plt.savefig(title)
-
+    plt.tight_layout() 
+    if save:
+        plt.savefig(f"{title}.png", dpi=300, bbox_inches='tight')
     plt.suptitle(title)
     # Show the combined figure
     plt.show()
-
 
 def plot_hist_degree(graph_object, save = True, hue_class = True):
     
@@ -497,8 +581,68 @@ def plot_rmse_epochs_multiD(sim_beta_distance_array = [-25,-20, -17, -15,-12,-10
    
     plt.show()  
 
+
+#### !!! Ancienne fontion à modifier !!! #######
 @decorateur.compute_time
 def plot_rmsedensity( sim_beta_distance_array = [-25, -20,-15, -12, -10,-8,-5, -3,], nb_epochs = 200):
+
+    """
+    Cette fonction trace l'évolution du RMSE (Root Mean Square Error) des effets fixes à travers les époques 
+    pour différentes densités de graphes simulés selon des distances bêta.
+
+    Paramètres:
+    ----------
+    sim_beta_distance_array : list of float, default=[-25, -20, -17, -15, -12, -10, -8, -7]
+        Liste des valeurs de distance bêta utilisées pour la simulation des graphes.
+    
+    epochs_step : int, default=10
+        Nombre d'époques entre chaque étape de calcul du RMSE.
+    
+    n : int, default=10
+        Nombre total de points (étapes) à calculer pour chaque simulation de graphe.
+    
+    save : bool, default=True
+        Indicateur pour sauvegarder ou non le graphique généré sous forme de fichier PNG.
+    
+    alpha_law_means : list of list of int, default=[[0,1], [1,-1], [2,0]]
+        Moyennes des lois normales pour les alphas des patients.
+
+    psi_law_means : list of list of int, default=[[1,1], [1,-1], [-1,2]]
+        Moyennes des lois normales pour les psis des médecins.
+    
+    gaussian_sphere : bool, default=False
+        Indicateur pour déterminer si les facteurs latents sont générés sur une sphère gaussienne.
+    
+    std_multiplier_p : float, default=0
+        Multiplicateur de l'écart-type pour la distribution des patients.
+    
+    std_multiplier_d : float, default=0
+        Multiplicateur de l'écart-type pour la distribution des médecins.
+    
+    nb_latent_factors : int, default=2
+        Nombre de facteurs latents dans le modèle.
+
+    radius : float, default=4
+        Rayon utilisé pour la construction du graphe.
+    
+    dilatation_p : float, default=1.5
+        Facteur de dilatation pour les patients.
+
+    dilatation_d : float, default=1.5
+        Facteur de dilatation pour les médecins.
+    
+    seed : int, default=12
+        Graine aléatoire pour la reproductibilité des simulations.
+
+    algorithm : str, default="MF"
+        Algorithme utilisé pour l'estimation des paramètres du modèle.
+
+    Retour:
+    -------
+    None
+        La fonction ne retourne rien mais affiche et (optionnellement) sauvegarde un graphique.
+    """
+    
     size = len(sim_beta_distance_array)
     density_array = np.zeros(size)
     beta_skilled_d, beta_age_d, beta_informed_p, beta_age_p, beta_distance = np.zeros(size), np.zeros(size), np.zeros(size), np.zeros(size) ,np.zeros(size)
