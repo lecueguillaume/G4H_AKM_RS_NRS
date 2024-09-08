@@ -29,3 +29,6 @@ Function make_matrix_heatmap called with arguments () and keyword arguments {'di
 Execution time: 11729 seconds.
 
 
+Function make_matrix_heatmap called with arguments () and keyword arguments {'dim_gen_array': array([1, 2, 3, 4, 5]), 'dim_estim_array': array([ 1,  2,  3,  4,  5,  8, 10]), 'algorithm': 'MF', 'nb_epochs_max': 120, 'name_file': 'matrix_heatmap_MF_seed13', 'seed': 13}.
+Execution time: 13501 seconds.
+
