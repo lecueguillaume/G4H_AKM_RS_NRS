@@ -22,7 +22,7 @@ from sklearn import metrics
 from sklearn.metrics.pairwise import cosine_similarity
 
 @decorateur.log_execution_time('execution_details.txt')
-def make_matrix_heatmap(dim_gen_array = np.array([1,2,3,4,5]), dim_estim_array = np.array([1, 2, 3, 4, 5, 8, 10]), seed = 12, algorithm = "NRS", nb_epochs_max = 100, name_file = "matrix_heatmap"):
+def make_matrix_heatmap(dim_gen_array = np.array([1,2,3,4,5]), dim_estim_array = np.array([1, 2, 3, 4, 5, 8, 10]), seed = 12, algorithm = "NRS", nb_epochs_max = 100, name_file = "matrix_heatmap", print_model = True):
     """
     Génère une carte de chaleur (heatmap) montrant la similarité de clustering entre les dimensions générées 
     et estimées à l'aide de l'algorithme K-means, en utilisant des graphes générés selon différentes dimensions latentes.
@@ -106,14 +106,16 @@ def make_matrix_heatmap(dim_gen_array = np.array([1,2,3,4,5]), dim_estim_array =
         for j, dim_estim in enumerate(dim_estim_array):
 
             # First estimation to determine the optimal number of epochs
-            estimates = get_estimations(graph_object.df, nb_epochs=nb_epochs_max, show_print=0, seed=seed, dim_embedding=dim_estim, valid_split=0.15,  algorithm =  algorithm)
+            estimates = get_estimations(graph_object.df, nb_epochs=nb_epochs_max, show_print=0, seed=seed, dim_embedding=dim_estim, valid_split=0.15,  algorithm =  algorithm, print_model = print_model)
             history = estimates[5]
             min_val_loss = min(history.history["val_loss"])
             min_val_loss_epoch = history.history["val_loss"].index(min_val_loss)
 
+            print(min_val_loss_epoch)
+
             print("first estimation: done")
             # Second estimation with the right number of epochs
-            estimates = get_estimations(graph_object.df, nb_epochs=min_val_loss_epoch, show_print=0, seed=seed, dim_embedding=dim_estim, valid_split=0.0,  algorithm =  algorithm)
+            estimates = get_estimations(graph_object.df, nb_epochs=min_val_loss_epoch, show_print=0, seed=seed, dim_embedding=dim_estim, valid_split=0.0,  algorithm =  algorithm, print_model = print_model)
             print("second estimation: done")
 
             ef_patient = estimates[1][0]

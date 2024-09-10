@@ -71,7 +71,7 @@ class SphereConstraint(constraints.Constraint):
         norms = tf.sqrt(tf.reduce_sum(tf.square(w), axis=1, keepdims=True))
         return w / (norms / self.radius)
 
-def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, target_loss=None, show_print=0, seed=12, l_lambda=0, show_time_execution = False, constraint = None, valid_split=0., cosine_sim = False, radius_constraint=4, algorithm = "MF"):
+def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, target_loss=None, show_print=0, seed=12, l_lambda=0, show_time_execution = False, valid_split=0, algorithm = "MF", print_model = False):
     """
     Estime les effets fixes et les Bêtas en utilisant TensorFlow.keras à partir d'un dataframe donné.
 
@@ -148,14 +148,9 @@ def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, tar
     D_doctor_input = Input(shape=(1,), name='D_d')
     distance_input = Input(shape=(1,), name="distance")
 
-    # Incorporation des utilisateurs et des docteurs dans des espaces latents
-    if constraint == "sphere":
-        
-        user_embedding = Embedding(name = 'patient_embedding', input_dim=num_patients, output_dim=dim_embedding, embeddings_constraint = SphereConstraint(radius_constraint) , embeddings_regularizer=regularizers.l2(l_lambda))(user_input)
-        doctor_embedding = Embedding(name = 'doctor_embedding', input_dim=num_doctors, output_dim=dim_embedding, embeddings_constraint = SphereConstraint(radius_constraint), embeddings_regularizer=regularizers.l2(l_lambda))(doctor_input)
-    else:
-        user_embedding = Embedding(name = 'patient_embedding', input_dim=num_patients, output_dim=dim_embedding, embeddings_regularizer=regularizers.l2(l_lambda))(user_input)
-        doctor_embedding = Embedding(name = 'doctor_embedding', input_dim=num_doctors, output_dim=dim_embedding, embeddings_regularizer=regularizers.l2(l_lambda))(doctor_input)
+
+    user_embedding = Embedding(name = 'patient_embedding', input_dim=num_patients, output_dim=dim_embedding, embeddings_regularizer=regularizers.l2(l_lambda))(user_input)
+    doctor_embedding = Embedding(name = 'doctor_embedding', input_dim=num_doctors, output_dim=dim_embedding, embeddings_regularizer=regularizers.l2(l_lambda))(doctor_input)
 
     
     # Obtention des vecteurs latents des utilisateurs et des docteurs
@@ -184,14 +179,6 @@ def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, tar
                         self.beta_distance * distance_input
             return linear_term
 
-        # Function to calculate weighted cosine similarity
-    def weighted_cosine_similarity(vectors):
-        u, v = vectors
-        u_norm = tf.norm(u, axis=-1, keepdims=True)
-        v_norm = tf.norm(v, axis=-1, keepdims=True)
-        dot_product = tf.reduce_sum(u * v, axis=-1)
-        cosine_sim = dot_product / (u_norm * v_norm + K.epsilon())
-        return cosine_sim
 
     if algorithm == "MF":
 
@@ -201,10 +188,6 @@ def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, tar
         if dim_embedding == 1:
         
             output = Add()([user_latent, doctor_latent, linear_term])
-        elif cosine_sim == True:
-            cosine_sim = Lambda(weighted_cosine_similarity)([user_latent, doctor_latent])
-            weighted_cosine_sim = cosine_sim * custom_layer.beta_cosine  # Apply the learned weight to cosine similarity
-            output = Add()([weighted_cosine_sim, linear_term])
         else:
             dot_product = Dot(axes=1)([user_latent, doctor_latent])
             output = Add()([dot_product, linear_term])
@@ -232,6 +215,8 @@ def get_estimations(df, nb_epochs=50, dim_embedding=1, initial_weights=None, tar
     # Compilation du modèle
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
+    if print_model:
+        print(model.summary())
     # Chargement des poids initiaux si disponibles (utile pour reprendre l'entraînement)
     if initial_weights != None:
         model.set_weights(initial_weights)
