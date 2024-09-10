@@ -17,3 +17,10 @@ Certains termes seront utilisés de manière interchangeable :
 - Le terme effet fixe sera généralement employé dans le cadre de la génération, tandis que le terme embedding sera préféré dans le cadre de l’estimation.
 
 Par ailleurs, les notations `α` et `ψ` désigneront respectivement les effets fixes des patients et des docteurs. Lorsqu’un accent circonflexe (chapeau, ^) sera ajouté au-dessus de ces symboles, il fera référence à l’estimation des embeddings dans le modèle, ou à l’estimation des effets fixes.
+
+## Informations pratiques
+
+Mes Notebooks ont été écrit dans cet ordre: 1) Clustering_AKM_MF_1D.ipynb  2) Clustering_AKM_MF_multidim.ipynb  3) Clustering_NRS.ipynb  4) Heatmap_AMI.ipynb
+Bien sûr, ils peuvent s'exécuter indépendament des autres.
+
+N'hésitez pas à me contacter sur Linkedin ou par mail à vincent.gimenes@ensae.fr en cas de problème avec mon code. 
