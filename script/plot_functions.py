@@ -13,7 +13,7 @@ import script.graph_formation as graph_formation
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 import umap.umap_ as umap
-import pacmap
+
 import seaborn as sns
 # Clustering
 from sklearn.cluster import KMeans
@@ -109,9 +109,9 @@ def plot_tab_ami_inertia_kmeans(tab, save=False, title='Inertie et AMI en foncti
     ax2.set_ylabel('AMI Score')
     
     # Add legends for both axes
-    ax1.legend(loc='upper left')
-    ax2.legend(loc='upper right')
-    
+    ax1.legend(loc='upper right', bbox_to_anchor=(1, 1), ncol=1)
+    ax2.legend(loc='upper right', bbox_to_anchor=(1, 0.85), ncol=1)
+ 
     # Plot for patient
     ax3 = axs[1]
     ax3.plot(tab['K'], tab['Inertia patient'], 'r-o', label='Inertia')
@@ -125,18 +125,18 @@ def plot_tab_ami_inertia_kmeans(tab, save=False, title='Inertie et AMI en foncti
     ax4.set_ylabel('AMI Score')
     
     # Add legends for both axes
-    ax3.legend(loc='upper left')
-    ax4.legend(loc='upper right')
-    
-    # Add a main title for the figure
-    plt.suptitle(title, fontsize=16)
-    
+    ax3.legend(loc='upper right', bbox_to_anchor=(1, 1), ncol=1)
+    ax4.legend(loc='upper right', bbox_to_anchor=(1, 0.85), ncol=1)
+
     # Adjust layout to make room for suptitle
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     
     # Save the figure if required
     if save:
         plt.savefig(f"{title.lower().replace(' ', '_')}.png", dpi=300, bbox_inches='tight')
+
+    # Add a main title for the figure
+    plt.suptitle(title, fontsize=16)
     
     # Show the plot
     plt.show()
@@ -197,9 +197,14 @@ def plot_simulation_density_ami(matrix, rank=7, n=100, worst=1, save=True):
     ax3.legend()
 
     ax4.plot(mean_density_array, mean_rmse_array)
+    ax4.set_ylabel("RMSE")
+    ax4.set_xlabel('density')
+    
     ax5.plot(mean_density_array, worst_ami_p, c="blue", label="patient")
     ax5.plot(mean_density_array, worst_ami_d, c="orange", label = "doctor")
     ax5.set_ylim(0,1)
+    ax5.set_ylabel("AMI")
+    ax5.set_xlabel('density')
     ax5.legend()
     
     if save:
@@ -302,7 +307,6 @@ def plot_ef_RD(graph_object, ef_patient, ef_doctor, label_doctor = None, label_p
         "PCA": PCA(n_components=2),
         "TSNE": TSNE(n_components=2),
         "UMAP": umap.UMAP(n_components=2),
-        "Pacmap": pacmap.PaCMAP(n_dims=2, n_neighbors=7)
     }
 
     if RD_method not in RD:
@@ -381,7 +385,7 @@ def plot_ef_1D(graph_object, ef_patient, ef_doctor, save = False, title = "EF_do
     # Show the combined figure
     plt.show()
 
-def plot_ef_2D(graph_object, ef_patient, ef_doctor, save = False, title = "EF_doctor_patient_2D", style_d = None, style_p = None):
+def plot_ef_2D(graph_object, ef_patient, ef_doctor, save = False, ylim = [-1,1], title = "EF_doctor_patient_2D", style_d = None, style_p = None):
     """
     Visualise les embeddings fixes (EF) 2D des patients et des docteurs.
 
@@ -404,18 +408,18 @@ def plot_ef_2D(graph_object, ef_patient, ef_doctor, save = False, title = "EF_do
     sns.scatterplot(ax=axes[0], x=ef_doctor[:,0], y=ef_doctor[:,1], 
                     hue=graph_object.psi_class, palette='viridis', style = style_d)
     #axes[0].set_title("Representation 1D de l'embedding estimé des docteurs avec leur type en couleur")
-    axes[0].set_ylim(-1, 1)
-    axes[0].set_xlabel("Valeur de l'effet fixe")
-    axes[0].set_ylabel('Jitter')
+    axes[0].set_ylim(ylim[0], ylim[1])
+    axes[0].set_xlabel("axe x de l'effet fixe")
+    axes[0].set_ylabel("axe y de l'effet fixe")
     axes[0].legend(title="Classe")
     
     # Second plot: EF patients
     sns.scatterplot(ax=axes[1], x=ef_patient[:,0], y=ef_patient[:,1], 
                     hue=graph_object.alpha_class, palette='viridis', style = style_p )
     #axes[1].set_title("Representation 1D de l'embedding estimé des patients avec leur type en couleur (avec jitter)")
-    axes[1].set_ylim(-1, 1)
-    axes[1].set_xlabel("Valeur de l'effet fixe")
-    axes[1].set_ylabel('Jitter')
+    axes[1].set_ylim(ylim[0], ylim[1])
+    axes[1].set_xlabel("axe x de l'effet fixe")
+    axes[1].set_ylabel("axe y de l'effet fixe")
     axes[1].legend(title="Classe")
     
     # Adjust layout for better spacing
